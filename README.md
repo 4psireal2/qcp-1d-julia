@@ -24,3 +24,6 @@
     activate .
     
     add <package>
+
+## Open questions
+- See `dmrg/model.jl`
