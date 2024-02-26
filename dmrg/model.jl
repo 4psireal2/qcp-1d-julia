@@ -5,55 +5,75 @@ L = 6
 Ω = 6
 γ = 1
 
-init_state_MPS = FiniteMPS(L, ℂ^2, ℂ^χ) 
-println("MPS state: $init_state_MPS")
+T = ComplexF64
 
-basis_0 = TensorMap([1, 0], ℂ^2 ← ℂ^1)
-basis_1 = TensorMap([0, 1], ℂ^2 ← ℂ^1)
+basis_0 = TensorMap(T[1, 0], ℂ^1 ⊗  ℂ^2 ← ℂ^1) 
+basis_1 = TensorMap(T[0, 1], ℂ^1 ⊗  ℂ^2 ← ℂ^1)
 
-init_product_state = basis_0 ⊗ basis_0 ⊗basis_0 ⊗ basis_1 ⊗ basis_1 ⊗ basis_1 
-# TensorMap((ℂ^2 ⊗ ℂ^2 ⊗ ℂ^2 ⊗ ℂ^2 ⊗ ℂ^2 ⊗ ℂ^2) ← (ℂ^1 ⊗ ℂ^1 ⊗ ℂ^1 ⊗ ℂ^1 ⊗ ℂ^1 ⊗ ℂ^1))
-#TODO: Perform a SVD such that init_product_state = init_state_MPS
+if isodd(L)
+    init_state_MPS = FiniteMPS([fill(basis_0, L÷2); basis_1; fill(basis_0, L÷2)]; normalize=true)
+else
+    init_state_MPS = FiniteMPS([fill(basis_0, L÷2 - 1); basis_1; fill(basis_0, L÷2)]; normalize=true)
+end
+@show init_state_MPS
 
-init_state_MPO = FiniteMPS(L, ℂ^2 ⊗ conj(ℂ^2), ℂ^χ) # hmm dim is already represented as product of dims
-println("Vectorized-MPO state: $init_state_MPO")
+
+# init_state_MPO = FiniteMPS(L, ℂ^2 ⊗ conj(ℂ^2), ℂ^χ) # hmm dim is already represented as product of dims
+init_state_MPO = FiniteMPS(L, fuse(ℂ^2, conj(ℂ^2)), ℂ^χ) # hmm dim is already represented as product of dims
+
+@show init_state_MPO
 
 # MPO representation of the Lindbladian superoperator
-T = ComplexF64
 Id_mat = TensorMap(T[1 0;0 1], ℂ^2 ← ℂ^2)
 
 sigmax = TensorMap(T[0 1; 1 0], ℂ^2 ← ℂ^2)
-sigmax_r = sigmax ⊗ Id_mat
-sigmax_l = Id_mat ⊗ sigmax
+fuseIsometry = TensorKit.isomorphism(ℂ^4, ℂ^2 ⊗ ℂ^2) 
+sigmax_r = fuseIsometry * (sigmax ⊗ Id_mat) * fuseIsometry'
+sigmax_l = fuseIsometry * (Id_mat ⊗ sigmax) * fuseIsometry'
 
 number_op = TensorMap(T[0 0; 0 1], ℂ^2 ← ℂ^2)
-number_op_r = number_op ⊗ Id_mat
-number_op_l = Id_mat ⊗ number_op
+number_op_r = fuseIsometry * (number_op ⊗ Id_mat) * fuseIsometry'
+number_op_l = fuseIsometry * (Id_mat ⊗ number_op) * fuseIsometry'
 
 annihilation_op = TensorMap(T[0 1; 0 0], ℂ^2 ← ℂ^2)
 creation_op = TensorMap(T[0 0; 1 0], ℂ^2 ← ℂ^2)
 
-on_site = γ * (annihilation_op ⊗ creation_op - (1/2) * number_op_r - (1/2) * number_op_l)
+on_site = γ * fuseIsometry * (annihilation_op ⊗ creation_op) * fuseIsometry' - (1/2) * number_op_r - (1/2) * number_op_l
 
-Linbladian = Array{Any, 3}(missing, L, 6, 6)
-Linbladian[1, 1, :] = [1, -1im*Ω*sigmax_r, -1im*sigmax_l, -1im*number_op_r, -1im*number_op_r, on_site] 
+Lindbladian = Array{Any, 3}(missing, L, 6, 6)
+Lindbladian[1, 1, :] = [1, -1im*Ω*sigmax_r, -1im*sigmax_l, -1im*number_op_r, -1im*number_op_r, on_site] 
 for i = 2:L-1
-    Linbladian[i, 1, :] = [1, -1im*Ω*sigmax_r, -1im*sigmax_l, -1im*number_op_r, -1im*number_op_r, on_site]
-    # Linbladian[i, 2, 6] = transpose(number_op_r)
-    # Linbladian[i, 3, 6] = transpose(number_op_l)
-    # Linbladian[i, 4, 6] = transpose(sigmax_r)
-    # Linbladian[i, 5, 6] = transpose(sigmax_l)
-    Linbladian[i, 2, 6] = number_op_r
-    Linbladian[i, 3, 6] = number_op_l
-    Linbladian[i, 4, 6] = sigmax_r
-    Linbladian[i, 5, 6] = sigmax_l
-    Linbladian[i, 6, 6] = 1
+    Lindbladian[i, 1, :] = [1, -1im*Ω*sigmax_r, -1im*sigmax_l, -1im*number_op_r, -1im*number_op_r, on_site]
+    Lindbladian[i, 2, 6] = number_op_r
+    Lindbladian[i, 3, 6] = number_op_l
+    Lindbladian[i, 4, 6] = sigmax_r
+    Lindbladian[i, 5, 6] = sigmax_l
+    Lindbladian[i, 6, 6] = 1
 end
-Linbladian[L, :, 6] = [on_site, missing, missing, missing, missing, 1]
-Linbladian = MPOHamiltonian(Linbladian)
+Lindbladian[L, :, 6] = [on_site, number_op_r, number_op_l, sigmax_r, sigmax_l, 1]
+Lindbladian = MPOHamiltonian(Lindbladian)
+
+Lindbladian_dag = Array{Any, 3}(missing, L, 6, 6)
+Lindbladian_dag[1, 1, :] = [1, im*Ω*sigmax_r, im*sigmax_l, im*number_op_r, im*number_op_r, on_site] 
+for i = 2:L-1
+    Lindbladian_dag[i, 1, :] = [1, im*Ω*sigmax_r, im*sigmax_l, im*number_op_r, im*number_op_r, on_site]
+    Lindbladian_dag[i, 2, 6] = number_op_r
+    Lindbladian_dag[i, 3, 6] = number_op_l
+    Lindbladian_dag[i, 4, 6] = sigmax_r
+    Lindbladian_dag[i, 5, 6] = sigmax_l
+    Lindbladian_dag[i, 6, 6] = 1
+end
+Lindbladian_dag[L, :, 6] = [on_site, number_op_r, number_op_l, sigmax_r, sigmax_l, 1]
+Lindbladian_dag = MPOHamiltonian(Lindbladian_dag)
+
+Lindbladian_fin = Lindbladian_dag*Lindbladian
 
 # MPO representation of the particle number operator
 number_op_chain = @mpoham sum(number_op{i} for i in vertices(FiniteChain(L)))
 
 number_density = expectation_value(init_state_MPS, number_op_chain)
 av_number_density = abs(sum(number_density))/L
+@show av_number_density
+
+# run DMRG
+groundstate, environment, δ = find_groundstate(init_state_MPO, Lindbladian_fin; verbose=false)
