@@ -22,5 +22,5 @@
     add <package>
 ```
 
-## Open questions
-- See `dmrg/model.jl`
+## Open questions / TODO
+- Calculate trace of MPO (vanishing trace => absorbing state / trivial solution)
