@@ -6,7 +6,7 @@ import MPSKit: ∂∂AC, environments, FiniteMPS
 import MPSKitModels: MPOHamiltonian
 
 
-function apply_MPO!(ψ::FiniteMPS, H::MPOHamiltonian, envs=environments(ψ, H))
+function apply_MPO(ψ::FiniteMPS, H::MPOHamiltonian, envs=environments(ψ, H))
     tol = 1e-12
     maxiter = 100 
 
