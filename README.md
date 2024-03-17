@@ -24,3 +24,4 @@
 
 ## Open questions / TODO
 - Calculate trace of MPO (vanishing trace => absorbing state / trivial solution)
+- Dimension increases towards the middle of the chain. But it is somehow fixed for MPS
