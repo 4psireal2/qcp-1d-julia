@@ -1,9 +1,10 @@
 import LinearAlgebra: kron, norm, dot, tr
 
 import Printf: @printf, @sprintf
-import KrylovKit: eigsolve
+import KrylovKit: eigsolve, Lanczos
 import MPSKit: PeriodicArray
-import TensorKit: isometry, leftorth, permute, randn, truncdim, ComplexSpace, TensorMap
+import TensorKit: @tensor, ⊗, fuse, isometry, leftorth, permute, randn, rightorth, space, 
+                  truncerr, truncdim, tsvd, ComplexSpace, SVD, TensorMap, LQpos, RQpos
 
 
 function initializeRandomMPS(N, d::Int64 = 2; bonddim:: Int64 = 1)::Vector{TensorMap}
@@ -25,6 +26,34 @@ function initializeRandomMPS(N, d::Int64 = 2; bonddim:: Int64 = 1)::Vector{Tenso
 end
 
 
+function initializeBasisMPS(N::Int64, basis::Vector; d::Int64 = 2)::Vector{TensorMap}
+    """
+    Return random vectorized MPO (MPS-like) for N sites. Bond dimension = 1 means 
+    product state with minimal entanglement
+    """
+
+    mps = Vector{TensorMap}(undef, N);
+
+    # left MPO boundary
+    leftB = zeros(ComplexF64, 1, d, d, 1)
+    leftB[:, :, 1, 1] = basis[1]
+    leftB[:, :, 2, 1] = basis[1]
+    mps[1] = TensorMap(leftB, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d),  ComplexSpace(1));
+    for i = 2 : (N-1)
+        bulk = zeros(ComplexF64, 1, 2, 2, 1)
+        bulk[:, :, 1, 1] = basis[i]
+        bulk[:, :, 2, 1] = basis[i]
+        mps[i] = TensorMap(bulk, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d),  ComplexSpace(1));
+    end
+    rightB = zeros(ComplexF64, 1, 2, 2, 1)
+    rightB[:, :, 1, 1] = basis[N]
+    rightB[:, :, 2, 1] = basis[N]
+    mps[N] = TensorMap(rightB, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d), ComplexSpace(1));
+
+    return mps;
+end
+
+
 function orthogonalizeMPS(mps::Vector{TensorMap}, orthoCenter::Int)::Vector{TensorMap}
     N = length(mps);
     orthoMPS = deepcopy(mps);
@@ -33,16 +62,17 @@ function orthogonalizeMPS(mps::Vector{TensorMap}, orthoCenter::Int)::Vector{Tens
     for i = 1 : 1 : (orthoCenter - 1)
         Q, R = leftorth(orthoMPS[i], (1, 2, 3), (4, ), alg = QRpos());
 
-        orthoMPS[i + 0] = permute(Q, (1,2), (3, 4)) ;
-        orthoMPS[i + 1] = permute(R * permute(orthoMPS[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4))
+        # orthoMPS[i + 0] = permute(Q, (1,2, 3), (4, )) ;
+        orthoMPS[i + 0] = Q ;
+        orthoMPS[i + 1] = permute(R * permute(orthoMPS[i + 1], (1, ), (2, 3, 4)), (1, 2, 3), (4, ))
     end
 
     # bring sites orthCenter + 1 to N into right-canonical form
     for i = N : -1 : (orthoCenter + 1)
         L, Q = rightorth(orthoMPS[i], (1, ), (2, 3, 4), alg = LQpos());
 
-        orthoMPS[i - 1] = permute(permute(orthoMPS[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
-        orthoMPS[i - 0] = permute(Q, (1, 2), (3, 4));
+        orthoMPS[i - 1] = permute(permute(orthoMPS[i-1], (1, 2, 3), (4, )) * L, (1, 2, 3), (4, ));
+        orthoMPS[i - 0] = Q;
     end
 
     return orthoMPS;
@@ -256,7 +286,7 @@ end
 
 function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
                bondDim::Int64 = 20, truncErr::Float64 = 1e-6, convTolE::Float64 = 1e-6,
-               eigsTol::Float64 = 1e-16, maxIterations::Int64 = 1, subspaceExpansion::Bool = true, verbosePrint::Bool = false)
+               eigsTol::Float64 = 1e-16, maxIterations::Int64 = 1, verbosePrint::Bool = false)
     
     N = length(mps);
 
@@ -277,14 +307,14 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
             bondTensor = mps[i] * permute(mps[i+1], (1, ), (2, 3, 4));
 
             # optimize wave function to get newAC
-            _, eigenVec = eigsolve(bondTensor, 1, :SR, KrylovKit.Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
+            _, eigenVec = eigsolve(bondTensor, 1, :SR, Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
                 applyH2(x, mpoEnvL[i], mpo[i], mpo[i + 1], mpoEnvR[i + 1])
             end
 
             newBondTensor = eigenVec[1];
 
             #  perform SVD and truncate to desired bond dimension
-            U, S, V, ϵ = tsvd(newBondTensor, (1, 2, 3), (4, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+            U, S, V, ϵ = tsvd(newBondTensor, (1, 2, 3), (4, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = SVD());
             U = permute(U, (1, 2, 3), (4, ));
             V = permute(S * V, (1, 2, 3), (4, ));
 
@@ -300,14 +330,14 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
             bondTensor = mps[i] * permute(mps[i+1], (1, ), (2, 3, 4));
 
             # optimize wave function to get newAC
-            _, eigenVec = eigsolve(bondTensor, 1, :SR, KrylovKit.Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
+            _, eigenVec = eigsolve(bondTensor, 1, :SR, Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
                 applyH2(x, mpoEnvL[i], mpo[i], mpo[i + 1], mpoEnvR[i + 1])
             end
 
             newBondTensor = eigenVec[1];
 
             #  perform SVD and truncate to desired bond dimension
-            U, S, V, ϵ = tsvd(newBondTensor, (1, 2, 3), (4, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+            U, S, V, ϵ = tsvd(newBondTensor, (1, 2, 3), (4, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = SVD());
             U = permute(U * S, (1, 2, 3), (4, ));
             V = permute(V, (1, 2, 3), (4, ));
 
@@ -343,8 +373,11 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
     return mps, finalEnergy;
 end
 
+
 function computeExpVal(mps::Vector{TensorMap}, mpo::Vector{TensorMap})::Float64
-    
+    """
+    Compute expectation value for the whole chain
+    """
     N = length(mps);
     mps = orthonormalizeMPS(mps);
 
@@ -368,50 +401,29 @@ function computeExpVal(mps::Vector{TensorMap}, mpo::Vector{TensorMap})::Float64
 end
 
 
+function computeSiteExpVal(mps::Vector{TensorMap}, onsiteOperators::Vector{TensorMap})::Vector
+    """ 
+    Compute the expectation value < psi | onsiteOp | psi > for each site of the MPS 
+    """
 
+    # get length of mps
+    N = length(mps);
 
+    # compute expectation values
+    expVals = zeros(Float64, N);
+    for siteIdx = 1 : N
 
+        # bring MPS into canonical form
+        orthogonalizeMPS(mps, siteIdx);
+        psiNormSq = real(tr(mps[siteIdx]' * mps[siteIdx]));
+        
+        # compute expectation value
+        onsiteOp = onsiteOperators[siteIdx];
+        expVal = @tensor conj(mps[siteIdx][1, 2, 4]) * onsiteOp[2, 3] * mps[siteIdx][1, 3, 4];
+        expVals[siteIdx] = real(expVal) / psiNormSq;
+    
+    end
 
-N = 4;
-physicalDim = 2;
-
-# initialize MPS
-initialMPS = initializeRandomMPS(N);
-orthonormalizeMPS(initialMPS);
-
-# construct Lindbladian MPO for quantum contact process
-lindblad1 = constructLindbladMPO(6.0, 1.0, N);
-lindblad2 = constructLindbladDagMPO(6.0, 1.0, N);
-lindbladHermitian = multiplyMPOMPO(lindblad1, lindblad2);
-
-# run DMRG
-gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, verbosePrint = true);
-@sprintf("ground state energy per site E = %0.6f", gsEnergy / N)
-
-
-### Debugging
-# @tensor test1[-1 -2 -3; -4 -5 -6] := lindblad1[1][1 2 3; -4 -5 4] * lindblad2[1][5 -2 -3; 2 3 6] * fusers[1][-1; 1 5] * conj(fusers[2][-6; 4 6]);
-# @tensor test2[-1 -2; -3 -4 -5 -6] :=  lindblad1[1][-2, 2, 3, -3, -4, -5] * conj(initialMPS[1][-1, 2, 3, -6]);
-
-## Check for Hermicity
-# N = 3;
-# physicalDim = 2;
-
-# # initialize MPS
-# initialMPS = initializeRandomMPS(N);
-# orthonormalizeMPS(initialMPS);
-
-# # construct Lindbladian MPO for quantum contact process
-# lindblad1 = constructLindbladMPO(6.0, 1.0, N);
-# lindblad2 = constructLindbladDagMPO(6.0, 1.0, N);
-
-# boundaryL = TensorMap(ones, one(ComplexSpace()), ComplexSpace(1))
-# boundaryR = TensorMap(ones, ComplexSpace(1), one(ComplexSpace()))
-# lindbladHermitian = multiplyMPOMPO(lindblad1, lindblad2);
-# @tensor lindbladCheck[-1 -2 -3 -4 -5 -6; -7 -8 -9 -10 -11 -12] := boundaryL[1] * lindbladHermitian[1][1, -1, -2, -7, -8, 2] *
-#                                                                                lindbladHermitian[2][2, -3, -4, -9, -10, 3] *
-#                                                                                lindbladHermitian[3][3, -5, -6, -11, -12, 4] *
-#                                                                                boundaryR[4];
-
-# lindbladMatrix = reshape(convert(Array, lindbladCheck), (64, 64));
-# norm(lindbladMatrix - lindbladMatrix') = 0.0
+    # function return
+    return expVals;
+end
