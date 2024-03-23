@@ -1,8 +1,7 @@
-import TensorKit
+using TensorKit
+using Profile
 
 include("dmrg_vMPO.jl")
-
-using Profile
 
 
 N = 20;
@@ -13,12 +12,13 @@ bondDim = 1;
 basis_0 = [1, 0];
 basis_1 = [0, 1];
 
-basis = fill(basis_0, N);
+# initialize basis MPS
+basis = fill(basis_1, N);
 initialMPS = initializeBasisMPS(N, basis, d=d);
 initialMPS = orthonormalizeMPS(initialMPS);
 
 
-# initialize MPS
+# initialize random MPS
 # initialMPS = initializeRandomMPS(N);
 # initialMPS = orthonormalizeMPS(initialMPS);
 
@@ -28,12 +28,20 @@ lindblad2 = constructLindbladDagMPO(6.0, 1.0, N);
 lindbladHermitian = multiplyMPOMPO(lindblad1, lindblad2);
 
 # run DMRG
-elapsed_time = @elapsed begin
-    gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, maxIterations=10, verbosePrint = true);
-end
-println("Elapsed time for DMRG2: $elapsed_time seconds")
-@sprintf("ground state energy per site E = %0.6f", gsEnergy / N)
+# elapsed_time = @elapsed begin
+#     gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, maxIterations=10, verbosePrint = true);
+# end
+# println("Elapsed time for DMRG2: $elapsed_time seconds")
+# @sprintf("ground state energy per site E = %0.6f", gsEnergy / N)
 
+# compute particle numbers
+numberOps = Vector{TensorMap}(undef, N);
+numberOp = kron([0 0; 0 1], [0 0; 0 1]);
+for i = 1 : N
+    numberOps[i] = TensorMap(numberOp, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
+end
+
+particleNums = computeSiteExpVal(initialMPS, numberOps); ###XXX: Does it make sense to have max=0.5 for each site?
 
 ### Debugging
 # @tensor test1[-1 -2 -3; -4 -5 -6] := lindblad1[1][1 2 3; -4 -5 4] * lindblad2[1][5 -2 -3; 2 3 6] * fusers[1][-1; 1 5] * conj(fusers[2][-6; 4 6]);
@@ -77,4 +85,7 @@ println("Elapsed time for DMRG2: $elapsed_time seconds")
 
 # lindbladHermitianDag_3 =   TensorMap(conj(permutedims(convert(Array, lindbladHermitian[3]), (1, 4, 5, 2, 3, 6))), codomain(lindbladHermitian[3]), domain(lindbladHermitian[3]));
 # @show (norm(lindbladHermitian[3] - lindbladHermitianDag_3))
+
+# @tensor test1[-1; 2 3 -6] := numberOps[1][2, 3, 4, 5]*initialMPS[1][-1, 4, 5, -6]
+# expVal1 = @tensor conj(initialMPS[1][-1, 2, 3, -6]) * numberOps[1][2, 3, 4, 5] * initialMPS[1][-1, 4, 5, -6]
 

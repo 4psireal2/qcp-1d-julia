@@ -28,7 +28,7 @@ end
 
 function initializeBasisMPS(N::Int64, basis::Vector; d::Int64 = 2)::Vector{TensorMap}
     """
-    Return random vectorized MPO (MPS-like) for N sites. Bond dimension = 1 means 
+    Return vectorized MPO (MPS-like) given basis for N sites. Bond dimension = 1 means 
     product state with minimal entanglement
     """
 
@@ -401,7 +401,7 @@ function computeExpVal(mps::Vector{TensorMap}, mpo::Vector{TensorMap})::Float64
 end
 
 
-function computeSiteExpVal(mps::Vector{TensorMap}, onsiteOperators::Vector{TensorMap})::Vector
+function computeSiteExpVal(mps::Vector{TensorMap}, onsiteOps::Vector{TensorMap})::Vector
     """ 
     Compute the expectation value < psi | onsiteOp | psi > for each site of the MPS 
     """
@@ -411,19 +411,16 @@ function computeSiteExpVal(mps::Vector{TensorMap}, onsiteOperators::Vector{Tenso
 
     # compute expectation values
     expVals = zeros(Float64, N);
-    for siteIdx = 1 : N
+    for i = 1 : N
 
         # bring MPS into canonical form
-        orthogonalizeMPS(mps, siteIdx);
-        psiNormSq = real(tr(mps[siteIdx]' * mps[siteIdx]));
+        mps = orthogonalizeMPS(mps, i);
+        psiNormSq = real(tr(mps[i]' * mps[i]));
         
         # compute expectation value
-        onsiteOp = onsiteOperators[siteIdx];
-        expVal = @tensor conj(mps[siteIdx][1, 2, 4]) * onsiteOp[2, 3] * mps[siteIdx][1, 3, 4];
-        expVals[siteIdx] = real(expVal) / psiNormSq;
-    
+        expVal = @tensor conj(mps[i][-1, 2, 3, -6]) * onsiteOps[i][2, 3, 4, 5] * mps[i][-1, 4, 5, -6];
+        expVals[i] = real(expVal) / psiNormSq;
     end
 
-    # function return
     return expVals;
 end
