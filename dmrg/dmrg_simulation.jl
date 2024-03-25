@@ -1,10 +1,14 @@
+"""
+L up to 50
+"""
+
 using TensorKit
 using Profile
 
 include("dmrg_vMPO.jl")
 
 
-N = 20;
+N = 5;
 d = 2;
 bondDim = 1;
 
@@ -13,7 +17,7 @@ basis_0 = [1, 0];
 basis_1 = [0, 1];
 
 # initialize basis MPS
-basis = fill(basis_1, N);
+basis = fill(basis_0, N);
 initialMPS = initializeBasisMPS(N, basis, d=d);
 initialMPS = orthonormalizeMPS(initialMPS);
 
@@ -25,23 +29,32 @@ initialMPS = orthonormalizeMPS(initialMPS);
 # construct Lindbladian MPO for quantum contact process
 lindblad1 = constructLindbladMPO(6.0, 1.0, N);
 lindblad2 = constructLindbladDagMPO(6.0, 1.0, N);
-lindbladHermitian = multiplyMPOMPO(lindblad1, lindblad2);
+lindbladHermitian = multiplyMPOMPO(lindblad2, lindblad1);
 
 # run DMRG
-# elapsed_time = @elapsed begin
-#     gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, maxIterations=10, verbosePrint = true);
-# end
-# println("Elapsed time for DMRG2: $elapsed_time seconds")
-# @sprintf("ground state energy per site E = %0.6f", gsEnergy / N)
+elapsed_time = @elapsed begin
+    gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, maxIterations=10, verbosePrint = true);
+end
+println("Elapsed time for DMRG2: $elapsed_time seconds")
+@printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
+
+# run DMRG for larger bondDim
+println("Run DMRG for larger bondDim")
+
+elapsed_time = @elapsed begin
+    gsMPS, gsEnergy = DMRG2(gsMPS, lindbladHermitian, bondDim = 32, truncErr = 1e-6, convTolE = 1e-6, maxIterations=10, verbosePrint = true);
+end
+println("Elapsed time for DMRG2: $elapsed_time seconds")
+@printf("Ground state energy per site E = %0.6f", gsEnergy / N)
 
 # compute particle numbers
-numberOps = Vector{TensorMap}(undef, N);
-numberOp = kron([0 0; 0 1], [0 0; 0 1]);
-for i = 1 : N
-    numberOps[i] = TensorMap(numberOp, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
-end
+# numberOps = Vector{TensorMap}(undef, N);
+# numberOp = kron([0 0; 0 1], [0 0; 0 1]);
+# for i = 1 : N
+#     numberOps[i] = TensorMap(numberOp, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
+# end
 
-particleNums = computeSiteExpVal(initialMPS, numberOps); ###XXX: Does it make sense to have max=0.5 for each site?
+# particleNums = computeSiteExpVal(gsMPS, numberOps); ###XXX: Does it make sense to have max=0.5 for each site?
 
 ### Debugging
 # @tensor test1[-1 -2 -3; -4 -5 -6] := lindblad1[1][1 2 3; -4 -5 4] * lindblad2[1][5 -2 -3; 2 3 6] * fusers[1][-1; 1 5] * conj(fusers[2][-6; 4 6]);

@@ -24,7 +24,13 @@
 
 ## Open questions / TODO
 - Warm-up phase:
+    - Goal: Avoid solutions with vanishing trace (zero-MPS / zero MPO) + Improve the convergence of the algorithm 
     - Start with a small χ and use the result as initial guess for the search with increased χ.
     - Do not start with a random vector but a suitable initial state.
     - If after the algorithm has converged for χ = 1, if the solution is not compatible with a physical state, the procedure is repeated from a different initial state. Otherwise, the bond dimension is increased, and the obtained state is used as initial guess.
-    - Physical solution: the local number operator have expectation values within the physical range [0, 0.5] .
+    - Physical solution: the local number operator has expectation values within the physical range [0, 0.5]
+- Current findings / questions:
+    - Bad convergence for N >5 -> Due to the gap of L̂^† L̂ and degeneracy?
+    - Purity of state?
+    - A mixed left/right isometric form for DMRG?
+    - Plot L̂^† L̂ spectrum for small N?

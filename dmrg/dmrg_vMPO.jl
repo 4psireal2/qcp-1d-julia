@@ -54,7 +54,8 @@ function initializeBasisMPS(N::Int64, basis::Vector; d::Int64 = 2)::Vector{Tenso
 end
 
 
-function orthogonalizeMPS(mps::Vector{TensorMap}, orthoCenter::Int)::Vector{TensorMap}
+function orthogonalizeMPS(mps, orthoCenter::Int)::Vector{TensorMap}
+
     N = length(mps);
     orthoMPS = deepcopy(mps);
 
@@ -62,7 +63,6 @@ function orthogonalizeMPS(mps::Vector{TensorMap}, orthoCenter::Int)::Vector{Tens
     for i = 1 : 1 : (orthoCenter - 1)
         Q, R = leftorth(orthoMPS[i], (1, 2, 3), (4, ), alg = QRpos());
 
-        # orthoMPS[i + 0] = permute(Q, (1,2, 3), (4, )) ;
         orthoMPS[i + 0] = Q ;
         orthoMPS[i + 1] = permute(R * permute(orthoMPS[i + 1], (1, ), (2, 3, 4)), (1, 2, 3), (4, ))
     end
@@ -409,16 +409,24 @@ function computeSiteExpVal(mps::Vector{TensorMap}, onsiteOps::Vector{TensorMap})
     # get length of mps
     N = length(mps);
 
+    # compute Hermitian part of MPO
+    hermitMPS = Vector{TensorMap}(undef, N);
+    for i = 1 : N
+        mps_dag_i = TensorMap(conj(convert(Array, mps[i])), codomain(mps[i]), domain(mps[i])); #XXX: Is this correct?
+        hermitMPS[i] = mps_dag_i + mps[i]
+    end
+    hermitMPS /= 2
+
     # compute expectation values
     expVals = zeros(Float64, N);
     for i = 1 : N
 
         # bring MPS into canonical form
-        mps = orthogonalizeMPS(mps, i);
-        psiNormSq = real(tr(mps[i]' * mps[i]));
+        hermitMPS = orthogonalizeMPS(hermitMPS, i); #XXX: Issue 
+        psiNormSq = real(tr(hermitMPS[i]' * hermitMPS[i]));
         
         # compute expectation value
-        expVal = @tensor conj(mps[i][-1, 2, 3, -6]) * onsiteOps[i][2, 3, 4, 5] * mps[i][-1, 4, 5, -6];
+        expVal = @tensor conj(hermitMPS[i][-1, 2, 3, -6]) * onsiteOps[i][2, 3, 4, 5] * hermitMPS[i][-1, 4, 5, -6];
         expVals[i] = real(expVal) / psiNormSq;
     end
 
