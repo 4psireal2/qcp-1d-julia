@@ -40,3 +40,4 @@
 - TODO:
     - Reproduce Ising Chain with coherent dissipation (benchmarking model)
     - Construct  L̂^† L̂ and compute EVal spectrum
+    - modularize my code

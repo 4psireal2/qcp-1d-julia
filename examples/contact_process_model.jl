@@ -140,3 +140,4 @@ function constructNumberOps(N::Int64)::Vector{TensorMap}
     end
 
     return numberOps;
+end

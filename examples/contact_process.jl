@@ -2,11 +2,12 @@
 L up to 50
 """
 
+include("contact_process_model.jl")
+include("../src/dmrgVMPO.jl")
+include("../src/utility.jl")
+
 using TensorKit
 using Profile
-
-include("../utils/dmrg_vMPO.jl")
-include("contact_process_model.jl")
 
 
 ### Model parameters
