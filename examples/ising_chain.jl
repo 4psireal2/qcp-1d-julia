@@ -13,7 +13,7 @@ using TensorKit
 GAMMA = 1.0; V = 5.0; OMEGA = 1.5; DELTA = 1.0;
 
 ### System parameters
-N=5;
+N=10;
 D=1;
 
 # println("Check for Hermiticity of Lindbladian for N=3")
@@ -85,20 +85,25 @@ println("Elapsed time for DMRG2: $elapsed_time seconds")
 @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
 
 ### Check for unphysical solutions
-if -N <= sum(computeSiteExpVal(initialMPS, Mxs)) <= N || 
-    -N <= sum(computeSiteExpVal(initialMPS, Mys)) <= N || 
-    -N <= sum(computeSiteExpVal(initialMPS, Mzs)) <= N
-    println("Solution for ground state is physical!")
+if gsEnergy < 1e-12
 
-    println("Run DMRG for bond dimension = 2")
-    elapsed_time = @elapsed begin
-        gsMPS, gsEnergy = DMRG2(gsMPS, lindbladHermitian, bondDim = 2, truncErr = 1e-6, convTolE = 1e-5, maxIterations=1, verbosePrint = true);
+    if  -N <= sum(computeSiteExpVal(initialMPS, Mxs)) <= N || 
+        -N <= sum(computeSiteExpVal(initialMPS, Mys)) <= N || 
+        -N <= sum(computeSiteExpVal(initialMPS, Mzs)) <= N
+    
+        println("Run DMRG for bond dimension = 2")
+        elapsed_time = @elapsed begin
+            gsMPS, gsEnergy = DMRG2(gsMPS, lindbladHermitian, bondDim = 2, truncErr = 1e-6, convTolE = 1e-5, maxIterations=1, verbosePrint = true);
+        end
+        println("Elapsed time for DMRG2: $elapsed_time seconds")
+        @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
+    else
+        throw(ErrorException("Solution is unphysical!"))
     end
-    println("Elapsed time for DMRG2: $elapsed_time seconds")
-    @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
 
+else
+    throw(ErrorException("The exact solution has zero eigenvalue!"))
 end
-
 
 
 nothing

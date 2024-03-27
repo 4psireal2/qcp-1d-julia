@@ -163,7 +163,12 @@ function computeSiteExpVal(mps::Vector{TensorMap}, onsiteOps::Vector{TensorMap})
         
         # compute expectation value
         expVal = @tensor conj(hermitMPS[i][-1, 2, 3, -6]) * onsiteOps[i][2, 3, 4, 5] * hermitMPS[i][-1, 4, 5, -6];
-        expVals[i] = real(expVal) / psiNormSq;
+        if abs(imag(expVal)) < 1e-12
+            expVal = real(expVal);
+            expVals[i] = expVal / psiNormSq;
+        else
+            ErrorException("The Hamiltonian is not Hermitian, complex eigenvalue found.")
+        end
     end
 
     return expVals;
