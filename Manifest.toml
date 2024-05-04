@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.1"
+julia_version = "1.10.2"
 manifest_format = "2.0"
 project_hash = "54dadefe2218e0a2c7d3eb0addab86ba88a66f55"
 
@@ -1032,9 +1032,9 @@ version = "0.1.1"
 
 [[deps.TensorKit]]
 deps = ["HalfIntegers", "LRUCache", "LinearAlgebra", "PackageExtensionCompat", "Strided", "TensorOperations", "TupleTools", "VectorInterface", "WignerSymbols"]
-git-tree-sha1 = "b060923b0d2414452857c33545b6d67266dad590"
+git-tree-sha1 = "b8a1378adeb990a670416935255aed81c8d600a5"
 uuid = "07d1fe3e-3e46-537d-9eac-e9e13d0d4cec"
-version = "0.12.2"
+version = "0.12.3"
 weakdeps = ["ChainRulesCore"]
 
     [deps.TensorKit.extensions]

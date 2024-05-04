@@ -37,7 +37,21 @@
     - A mixed left/right isometric form for DMRG? -> [Publication](https://doi.org/10.1103/PhysRevB.87.155137)
     - Plot L̂^† L̂ spectrum for small N?
     - Note on III. Physical solutions (Supplementary Material)
-    - Transfer matrix
+    - maxIterations = variable for Eval Solver
+    - CP with DMRG1
+        + N=10, bondDim=16 -> E/N = 0.019969
+        + N=10, bondDim=20 -> E/N = 0.013150
+        + N=10, bondDim=32 -> E/N = 0.005064
+        + N=10, bondDim=40 -> E/N = 0.002810
+        + N=10, bondDim=50 -> E/N = 0.001455
+        + N=10, bondDim=60 -> E/N = 0.000850
+
+    - Ising chain with DMRG1 -> Start from random states
+        + N=10, bondDim=16 -> E/N = 0.143694
+        + N=10, bondDim=32 -> E/N = 0.143066
+        + N=10, bondDim=40 -> E/N = 0.143038
+        + N=10, bondDim=50 -> E/N = 0.143026
+
 - Checked:
     - Hermiticity  of rho, numberOp
 - TODO:

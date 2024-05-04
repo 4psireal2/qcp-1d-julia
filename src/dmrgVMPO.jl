@@ -22,6 +22,13 @@ function updateMPOEnvR(mpoEnvR::TensorMap, mpsT::TensorMap, mpo::TensorMap, mpsB
 end
 
 
+function applyH1(X::TensorMap, EnvL::TensorMap, mpo::TensorMap, EnvR::TensorMap)::TensorMap
+    # @tensor X[-1 -2 -3; -4 -5 -6] := EnvL[-1, 2, 1] * X[2, 3, 4, 6, 7, 8] * mpo1[1, -2, -3, 3, 4, 5] * mpo2[5, -4, -5, 6, 7, 9] * EnvR[8, 9, -6];
+    @tensor X[-1 -2 -3; -4] := EnvL[-1, 2, 1] * X[2, 3, 4, 5] * mpo[1, -2, -3, 3, 4, 6] * EnvR[5, 6, -4];
+    return X;
+end
+
+
 function applyH2(X::TensorMap, EnvL::TensorMap, mpo1::TensorMap, mpo2::TensorMap, EnvR::TensorMap)::TensorMap
     @tensor X[-1 -2 -3; -4 -5 -6] := EnvL[-1, 2, 1] * X[2, 3, 4, 6, 7, 8] * mpo1[1, -2, -3, 3, 4, 5] * mpo2[5, -4, -5, 6, 7, 9] * EnvR[8, 9, -6];
     
@@ -57,6 +64,111 @@ function initializeMPOEnvs(mps::Vector{TensorMap}, mpo::Vector{TensorMap}; cente
 end
 
 
+function DMRG1(mps::Vector{TensorMap}, mpo::Vector{TensorMap}; convTolE::Float64 = 1e-6,
+    eigsTol::Float64 = 1e-16, maxIterations::Int64 = 1, verbosePrint::Bool = false)
+    """
+    Use computeExpVal for expectation values
+    """
+    N = length(mps);
+
+    initialEnergy = (1 / N) * sum(computeExpVal(mps, mpo));
+    mpsEnergy = Float64[initialEnergy];
+    
+    mpoEnvL, mpoEnvR = initializeMPOEnvs(mps, mpo);
+
+    loopCounter = 1;
+    runOptimizationDMRG = true;
+    while runOptimizationDMRG
+
+        # sweep L ---> R
+
+        for i = 1 : +1 : N
+
+            # optimize wave function to get newTensor
+            _, eigenVec = 
+                eigsolve(mps[i], 1, :SR, KrylovKit.Lanczos(tol = eigsTol, maxiter = maxIterations)) do x
+                    applyH1(x, mpoEnvL[i], mpo[i], mpoEnvR[i])
+                end
+
+            newTensor = eigenVec[1];
+
+            # shift orthogonality center to the right and update MPO environments
+            if i < N
+
+                # left-orthogonalize newTensor
+                (Q, R) = leftorth(newTensor, (1, 2, 3), (4, ), alg = QRpos())
+                R /= norm(R);
+                mps[i] = permute(Q, (1, 2, 3), (4, ));
+
+                # absorb R into next MPS site
+                mps[i + 1] = permute(R * permute(mps[i + 1], (1, ), (2, 3, 4)), (1, 2, 3), (4, ));
+
+                # update mpoEnvL
+                mpoEnvL[i + 1] = updateMPOEnvL(mpoEnvL[i], mps[i], mpo[i], mps[i]);
+            else
+                mps[i] = newTensor;
+            end
+        end
+
+        # sweep L <--- R
+        for i = N : -1 : 1
+
+            # optimize wave function to get newTensor
+            _, eigenVec = 
+                eigsolve(mps[i], 1, :SR, KrylovKit.Lanczos(tol = eigsTol, maxiter = maxIterations)) do x
+                    applyH1(x, mpoEnvL[i], mpo[i], mpoEnvR[i])
+                end
+            newTensor = eigenVec[1];
+
+            # shift orthogonality center to the left and update MPO environments
+            if i > 1
+
+                # right-orthogonalize newTensor
+                (L, Q) = rightorth(newTensor, (1, ), (2, 3, 4), alg = LQpos());
+                L /= norm(L);
+                mps[i] = permute(Q, (1, 2, 3), (4, ));
+
+                # absorb L into previous MPS site
+                mps[i - 1] = permute(mps[i - 1] * L, (1, 2, 3), (4, ));
+
+                # update mpoEnvR
+                mpoEnvR[i - 1] = updateMPOEnvR(mpoEnvR[i], mps[i], mpo[i], mps[i]);
+
+            else
+                mps[i] = newTensor;
+            end
+        end
+
+        # normalize 
+        # mpsNorm = tr(mps[1]' * mps[1]);
+        # mps[1] /= sqrt(mpsNorm)
+
+
+        # compute expectation value
+        expVal = (1 / N) * sum(computeExpVal(mps, mpo));
+        if abs(imag(expVal)) < 1e-12
+            expVal = real(expVal);
+        else
+            ErrorException("The Hamiltonian is not Hermitian, complex eigenvalue found.")
+        end
+        mpsEnergy = vcat(mpsEnergy, expVal)
+
+        # check convergence of ground state energy
+        energyConvergence = abs(mpsEnergy[end - 1] - mpsEnergy[end]);
+        verbosePrint && @printf("DMRG step %d - energy, convergence = %0.8f, %0.8e\n", loopCounter, expVal, energyConvergence);
+        if energyConvergence < convTolE
+            runOptimizationDMRG = false;
+        end
+
+        loopCounter += 1;
+    end
+
+    # return optimized mps
+    finalEnergy = mpsEnergy[end];
+    return mps, finalEnergy;
+end
+
+
 function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
                bondDim::Int64 = 20, truncErr::Float64 = 1e-6, convTolE::Float64 = 1e-6,
                eigsTol::Float64 = 1e-16, maxIterations::Int64 = 1, verbosePrint::Bool = false)
@@ -79,7 +191,7 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
             # construct intial bond tensor
             bondTensor = mps[i] * permute(mps[i+1], (1, ), (2, 3, 4));
 
-            # optimize wave function to get newAC
+            # optimize wave function to get newTensor
             _, eigenVec = eigsolve(bondTensor, 1, :SR, Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
                 applyH2(x, mpoEnvL[i], mpo[i], mpo[i + 1], mpoEnvR[i + 1])
             end
@@ -102,7 +214,7 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
             # construct intial bond tensor
             bondTensor = mps[i] * permute(mps[i+1], (1, ), (2, 3, 4));
 
-            # optimize wave function to get newAC
+            # optimize wave function to get newTensor
             _, eigenVec = eigsolve(bondTensor, 1, :SR, Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
                 applyH2(x, mpoEnvL[i], mpo[i], mpo[i + 1], mpoEnvR[i + 1])
             end

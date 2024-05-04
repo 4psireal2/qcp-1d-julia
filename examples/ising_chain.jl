@@ -3,21 +3,25 @@ include("../src/utility.jl")
 include("../src/dmrgVMPO.jl")
 
 using LinearAlgebra
+using Plots
 using Printf
 using Statistics
 
 using TensorKit
-
+# import LinearAlgebra: eigenvals
 
 ### Model parameters
 GAMMA = 1.0; V = 5.0; OMEGA = 1.5; DELTA = 1.0;
 
 ### System parameters
 N=10;
-D=1;
+D=50;
 
 # println("Check for Hermiticity of Lindbladian for N=3")
 # N = 3;
+
+# DELTA = range(-4, 6, length=25);
+
 # lindblad1 = constructLindbladMPO(GAMMA, V, OMEGA, DELTA, N);
 # lindblad2 = constructLindbladDagMPO(GAMMA, V, OMEGA, DELTA, N);
 # lindbladHermitian = multiplyMPOMPO(lindblad2, lindblad1);
@@ -30,37 +34,43 @@ D=1;
 # lindbladMatrix = reshape(convert(Array, lindbladCheck), (64, 64));
 # @show norm(lindbladMatrix - lindbladMatrix') == 0.0
 
+### Plot spectral gap
+# Evals, Evectors = eigen(lindbladMatrix)
+# sort!(Evals);
+# @show Evals[2] - Evals[1]
+
+
 ### basis states
-basis0 = [1, 0];
-basis1 = [0, 1];
-basis = fill(kron(basis0, basis0), N);
-initialMPS = initializeBasisMPS(N, basis);
-initialMPS = orthonormalizeMPS(initialMPS);
+# basis0 = [1, 0];
+# basis1 = [0, 1];
+# basis = fill(kron(basis0, basis0), N);
+# initialMPS = initializeBasisMPS(N, basis);
+# initialMPS = orthonormalizeMPS(initialMPS);
 
 
-### Lindbladian
-lindblad1 = constructLindbladMPO(GAMMA, V, OMEGA, DELTA, N);
-lindblad2 = constructLindbladDagMPO(GAMMA, V, OMEGA, DELTA, N);
-lindbladHermitian = multiplyMPOMPO(lindblad2, lindblad1);
+# ### Lindbladian
+# lindblad1 = constructLindbladMPO(GAMMA, V, OMEGA, DELTA, N);
+# lindblad2 = constructLindbladDagMPO(GAMMA, V, OMEGA, DELTA, N);
+# lindbladHermitian = multiplyMPOMPO(lindblad2, lindblad1);
 
-println("Compute magnetisation")
-Mzs = Vector{TensorMap}(undef, N);
-Mz = 0.5 * (kron([+1 0 ; 0 -1], [1 0; 0 1]) + kron([1 0; 0 1], [+1 0 ; 0 -1]));
-for i = 1 : N
-    Mzs[i] = TensorMap(Mz, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
-end
+# println("Compute magnetisation")
+# Mzs = Vector{TensorMap}(undef, N);
+# Mz = 0.5 * (kron([+1 0 ; 0 -1], [1 0; 0 1]) + kron([1 0; 0 1], [+1 0 ; 0 -1]));
+# for i = 1 : N
+#     Mzs[i] = TensorMap(Mz, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
+# end
 
-Mxs = Vector{TensorMap}(undef, N);
-Mx = 0.5 * (kron([0 +1 ; +1 0], [1 0; 0 1]) + kron([1 0; 0 1], [0 +1 ; +1 0]));
-for i = 1 : N
-    Mxs[i] = TensorMap(Mx, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
-end
+# Mxs = Vector{TensorMap}(undef, N);
+# Mx = 0.5 * (kron([0 +1 ; +1 0], [1 0; 0 1]) + kron([1 0; 0 1], [0 +1 ; +1 0]));
+# for i = 1 : N
+#     Mxs[i] = TensorMap(Mx, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
+# end
 
-Mys = Vector{TensorMap}(undef, N);
-My = 0.5 * (kron([0 -1im ; +1im 0], [1 0; 0 1]) + kron([1 0; 0 1], [0 -1im ; +1im 0]));
-for i = 1 : N
-    Mys[i] = TensorMap(My, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
-end
+# Mys = Vector{TensorMap}(undef, N);
+# My = 0.5 * (kron([0 -1im ; +1im 0], [1 0; 0 1]) + kron([1 0; 0 1], [0 -1im ; +1im 0]));
+# for i = 1 : N
+#     Mys[i] = TensorMap(My, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
+# end
 
 # @show mZSite = computeSiteExpVal(initialMPS, Mzs)
 
@@ -77,33 +87,47 @@ end
 # @show purity = computePurity(initialMPS);
 
 
-println("Run DMRG for bond dimension = 1")
-elapsed_time = @elapsed begin
-    gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 1, truncErr = 1e-6, convTolE = 1e-6, maxIterations=1, verbosePrint = true);
-end
-println("Elapsed time for DMRG2: $elapsed_time seconds")
-@printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
+# println("Run DMRG for bond dimension = 1")
+# elapsed_time = @elapsed begin
+#     gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, maxIterations=1, verbosePrint = true);
+# end
+# println("Elapsed time for DMRG2: $elapsed_time seconds")
+# @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
 
-### Check for unphysical solutions
-if gsEnergy < 1e-12
+# ### Check for unphysical solutions
+# if gsEnergy < 1e-12
 
-    if  -N <= sum(computeSiteExpVal(initialMPS, Mxs)) <= N || 
-        -N <= sum(computeSiteExpVal(initialMPS, Mys)) <= N || 
-        -N <= sum(computeSiteExpVal(initialMPS, Mzs)) <= N
+#     if  -N <= sum(computeSiteExpVal(initialMPS, Mxs)) <= N || 
+#         -N <= sum(computeSiteExpVal(initialMPS, Mys)) <= N || 
+#         -N <= sum(computeSiteExpVal(initialMPS, Mzs)) <= N
     
-        println("Run DMRG for bond dimension = 2")
-        elapsed_time = @elapsed begin
-            gsMPS, gsEnergy = DMRG2(gsMPS, lindbladHermitian, bondDim = 2, truncErr = 1e-6, convTolE = 1e-5, maxIterations=1, verbosePrint = true);
-        end
-        println("Elapsed time for DMRG2: $elapsed_time seconds")
-        @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
-    else
-        throw(ErrorException("Solution is unphysical!"))
-    end
+#         println("Run DMRG for bond dimension = 2")
+#         elapsed_time = @elapsed begin
+#             gsMPS, gsEnergy = DMRG2(gsMPS, lindbladHermitian, bondDim = 2, truncErr = 1e-6, convTolE = 1e-5, maxIterations=1, verbosePrint = true);
+#         end
+#         println("Elapsed time for DMRG2: $elapsed_time seconds")
+#         @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
+#     else
+#         throw(ErrorException("Solution is unphysical!"))
+#     end
 
-else
-    throw(ErrorException("The exact solution has zero eigenvalue!"))
+# else
+#     throw(ErrorException("The exact solution has zero eigenvalue!"))
+# end
+
+initialMPS = initializeRandomMPS(N, bonddim=D);
+initialMPS = orthonormalizeMPS(initialMPS);
+lindblad1 = constructLindbladMPO(GAMMA, V, OMEGA, DELTA, N);
+lindblad2 = constructLindbladDagMPO(GAMMA, V, OMEGA, DELTA, N);
+lindbladHermitian = multiplyMPOMPO(lindblad2, lindblad1);
+
+### run DMRG
+println("Run DMRG1 for bond dimension = $D")
+elapsed_time = @elapsed begin
+gsMPS, gsEnergy = DMRG1(initialMPS, lindbladHermitian, convTolE = 1e-6, maxIterations=1, verbosePrint = true);
 end
+println("Elapsed time for DMRG1: $elapsed_time seconds")
+@printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
 
 
 nothing

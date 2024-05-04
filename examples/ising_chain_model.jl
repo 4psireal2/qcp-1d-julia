@@ -22,8 +22,14 @@ function constructLindbladMPO(gamma::Float64, V::Float64, omega::Float64, delta:
     anOp = annihilationOp*creationOp;
     anOpR = kron(anOp, Id);
     anOpL = kron(Id, anOp);
+    
+    numberOp = [0 0; 0 1];
+    numberOpR = kron(numberOp, Id);
+    numberOpL = kron(Id, numberOp);
+
 
     onSite = -1im*(omega/2)*(sigmaXL + sigmaXR) + 1im*(V-delta)/2*(sigmaZL+sigmaZR) + gamma*kron(creationOp, creationOp) - (1/2)*gamma*(anOpL + anOpR);
+    # onSite = -1im*(omega/2)*(sigmaXL + sigmaXR) + 1im*(V-delta)/2*(sigmaZL+sigmaZR) + gamma*kron(annihilationOp, annihilationOp) - (1/2)*gamma*(numberOpR + numberOpL);
 
     lindbladMPO = Vector{TensorMap}(undef, N);
 
@@ -81,7 +87,12 @@ function constructLindbladDagMPO(gamma::Float64, V::Float64, omega::Float64, del
     anOpR = kron(anOp, Id);
     anOpL = kron(Id, anOp);
 
+    numberOp = [0 0; 0 1];
+    numberOpR = kron(numberOp, Id);
+    numberOpL = kron(Id, numberOp);
+
     onSite = 1im*(omega/2)*(sigmaXL + sigmaXR) - 1im*(V-delta)/2*(sigmaZL+sigmaZR) + gamma*kron(annihilationOp, annihilationOp) - (1/2)*gamma*(anOpL + anOpR);
+    # onSite = 1im*(omega/2)*(sigmaXL + sigmaXR) - 1im*(V-delta)/2*(sigmaZL+sigmaZR) + gamma*kron(creationOp, creationOp) - (1/2)*gamma*(numberOpR + numberOpL);
 
     lindbladMPO = Vector{TensorMap}(undef, N);
 

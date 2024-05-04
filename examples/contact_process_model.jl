@@ -4,7 +4,7 @@ using TensorKit
 
 function constructLindbladMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{TensorMap}
     """
-    Construct MPO for Lindbladian of a contact process
+    Construct MPO for the Lindbladian of the contact process
     """
     # define operators
     Id = [+1 0 ; 0 +1];
@@ -31,7 +31,7 @@ function constructLindbladMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{
     leftB[1, :, :, 4] = numberOpR;
     leftB[1, :, :, 5] = numberOpL;
     leftB[1, :, :, 6] = gamma*onSite;
-    lindbladMPO[1] = TensorMap(leftB, ComplexSpace(1) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(6));
+    lindbladMPO[1] = TensorMap(leftB, ComplexSpace(1) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)' ⊗ ComplexSpace(6));
 
     # bulk MPO
     for i = 2 : (N-1)
@@ -43,23 +43,23 @@ function constructLindbladMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{
         bulk[1, :, :, 5] = numberOpL;
         bulk[1, :, :, 6] = gamma * onSite;
         bulk[2, :, :, 6] = -1im * omega * numberOpR;
-        bulk[3, :, :, 6] = -1im * omega * numberOpL;
+        bulk[3, :, :, 6] = 1im * omega * numberOpL;
         bulk[4, :, :, 6] = -1im * omega * sigmaXR;
-        bulk[5, :, :, 6] = -1im * omega * sigmaXL;
+        bulk[5, :, :, 6] = 1im * omega * sigmaXL;
         bulk[6, :, :, 6] = kron(Id, Id);
         
-        lindbladMPO[i] = TensorMap(bulk, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(6));
+        lindbladMPO[i] = TensorMap(bulk, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)' ⊗ ComplexSpace(6));
     end
 
     # right MPO boundary
     rightB = zeros(ComplexF64, 6, 4, 4, 1)
     rightB[1, :, :, 1] = gamma*onSite;
     rightB[2, :, :, 1] = -1im * omega * numberOpR;
-    rightB[3, :, :, 1] = -1im * omega * numberOpL;
+    rightB[3, :, :, 1] = 1im * omega * numberOpL;
     rightB[4, :, :, 1] = -1im * omega * sigmaXR;
-    rightB[5, :, :, 1] = -1im * omega * sigmaXL;
+    rightB[5, :, :, 1] = 1im * omega * sigmaXL;
     rightB[6, :, :, 1] = kron(Id, Id);
-    lindbladMPO[N] = TensorMap(rightB, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(1));
+    lindbladMPO[N] = TensorMap(rightB, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)' ⊗ ComplexSpace(1));
 
     return lindbladMPO;
 end
@@ -67,7 +67,7 @@ end
 
 function constructLindbladDagMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{TensorMap}
     """
-    Construct MPO for adjoint Lindbladian of a contact process
+    Construct MPO for the adjoint Lindbladian of the contact process
     """
     # define operators
     Id = [+1 0 ; 0 +1];
@@ -94,7 +94,7 @@ function constructLindbladDagMPO(omega::Float64, gamma::Float64, N::Int64)::Vect
     leftB[1, :, :, 4] = numberOpR;
     leftB[1, :, :, 5] = numberOpL;
     leftB[1, :, :, 6] = gamma*onSiteDagger;
-    lindbladDagMPO[1] = TensorMap(leftB, ComplexSpace(1) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(6));
+    lindbladDagMPO[1] = TensorMap(leftB, ComplexSpace(1) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)' ⊗ ComplexSpace(6));
 
     # bulk MPO
     for i = 2 : (N-1)
@@ -106,23 +106,23 @@ function constructLindbladDagMPO(omega::Float64, gamma::Float64, N::Int64)::Vect
         bulk[1, :, :, 5] = numberOpL;
         bulk[1, :, :, 6] = gamma * onSiteDagger;
         bulk[2, :, :, 6] = im * omega * numberOpR;
-        bulk[3, :, :, 6] = im * omega * numberOpL;
+        bulk[3, :, :, 6] = -1im * omega * numberOpL;
         bulk[4, :, :, 6] = im * omega * sigmaXR;
-        bulk[5, :, :, 6] = im * omega * sigmaXL;
+        bulk[5, :, :, 6] = -1im * omega * sigmaXL;
         bulk[6, :, :, 6] = kron(Id, Id);
         
-        lindbladDagMPO[i] = TensorMap(bulk, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(6));
+        lindbladDagMPO[i] = TensorMap(bulk, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)' ⊗ ComplexSpace(6));
     end
 
     # right MPO boundary
     rightB = zeros(ComplexF64, 6, 4, 4, 1)
     rightB[1, :, :, 1] = gamma*onSiteDagger;
     rightB[2, :, :, 1] = im * omega * numberOpR;
-    rightB[3, :, :, 1] = im * omega * numberOpL;
+    rightB[3, :, :, 1] = -1im * omega * numberOpL;
     rightB[4, :, :, 1] = im * omega * sigmaXR;
-    rightB[5, :, :, 1] = im * omega * sigmaXL;
+    rightB[5, :, :, 1] = -1im * omega * sigmaXL;
     rightB[6, :, :, 1] = kron(Id, Id);
-    lindbladDagMPO[N] = TensorMap(rightB, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(1));
+    lindbladDagMPO[N] = TensorMap(rightB, ComplexSpace(6) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)' ⊗ ComplexSpace(1));
 
     return lindbladDagMPO;
 end
@@ -136,7 +136,7 @@ function constructNumberOps(N::Int64)::Vector{TensorMap}
     numberOp = (kron([0 0; 0 1], [1 0; 0 1]) + kron([1 0; 0 1], [0 0; 0 1]));
     
     for i = 1 : N
-        numberOps[i] = TensorMap(numberOp, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2);
+        numberOps[i] = TensorMap(numberOp, ℂ^1 ⊗ ℂ^2 ⊗ conj(ℂ^2), ℂ^2 ⊗ conj(ℂ^2) ⊗ ℂ^1);
     end
 
     return numberOps;
