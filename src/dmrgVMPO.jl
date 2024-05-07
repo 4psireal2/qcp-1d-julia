@@ -140,8 +140,8 @@ function DMRG1(mps::Vector{TensorMap}, mpo::Vector{TensorMap}; convTolE::Float64
         end
 
         # normalize 
-        # mpsNorm = tr(mps[1]' * mps[1]);
-        # mps[1] /= sqrt(mpsNorm)
+        mpsNorm = tr(mps[1]' * mps[1]);
+        mps[1] /= sqrt(mpsNorm)
 
 
         # compute expectation value

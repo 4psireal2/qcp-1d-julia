@@ -14,11 +14,11 @@ function initializeRandomMPS(N, d::Int64 = 2; bonddim:: Int64 = 1)::Vector{Tenso
     randomMPS = Vector{TensorMap}(undef, N);
 
     # left MPO boundary
-    randomMPS[1] = TensorMap(ones, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
+    randomMPS[1] = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
     for i = 2 : (N-1)
-        randomMPS[i] = TensorMap(ones, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
+        randomMPS[i] = TensorMap(randn, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
     end
-    randomMPS[N] = TensorMap(ones, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)', ComplexSpace(1));
+    randomMPS[N] = TensorMap(randn, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)', ComplexSpace(1));
 
     return randomMPS;
 end
@@ -115,52 +115,26 @@ function computeSiteExpVal_vMPO(mps, mpo)::Vector
         boundaryR = TensorMap(ones, ℂ^1, one(ComplexSpace()));
         for j = 1 :N
             if j==i
-                _boundaryL = TensorMap(ones, one(ComplexSpace()), space(mpo)[1]);
-                _boundaryR = TensorMap(ones, conj(space(mpo)[6]), one(ComplexSpace()));
-                @tensor _mpo[-3 -4; -1 -2] := _boundaryL[1] * mpo[1,-3,-4,-1,-2,2] * _boundaryR[2];
-                @tensor contraction[-1 -2;-3 -4] := mps[j][-1, 1, 2, -4] * _mpo[-2,-3, 1, 2];
-                dim1, dim4 = dim(space(contraction)[1]), dim(space(contraction)[4]);
-                _contraction = reshape(convert(Array, contraction), (dim1,2,2,dim4));
-                contraction = TensorMap(sum(_contraction, dims=[2,3]), space(contraction)[1], conj(space(contraction)[4]));
+                @tensor contraction[-1; -2] := mps[j][-1, 1, 2, -2] * mpo[2, 1];
             else
-                dim1, dim4 = dim(space(mps[j])[1]), dim(space(mps[j])[4]);
-                _contraction = reshape(convert(Array, mps[j]), (dim1,2,2,dim4));
-                contraction = TensorMap(sum(_contraction, dims=[2,3]), space(mps[j])[1], conj(space(mps[j])[4]));
+
+                @tensor contraction[-1; -2] := mps[j][-1, 1, 1, -2] 
             end
+
             boundaryL = boundaryL * contraction # @tensor boundaryL[-1] := boundaryL[1] * contraction[1, -1]
         end
 
-        expVals[i] = tr(boundaryL * boundaryR)
+        expVal = tr(boundaryL * boundaryR);
+
+        if abs(imag(expVal)) < 1e-12
+            expVals[i] = real(expVal);
+        else
+            ErrorException("The Hamiltonian is not Hermitian, complex eigenvalue found.")
+        end
+
     end
     
     return expVals;
-end
-
-
-function computeExpVal(mps, mpo)::Float64
-    """ 
-    Compute expectation value Tr(ρ† . A . ρ)
-    """
-    N = length(mps);
-    mps = orthonormalizeMPS(mps);
-
-    # contract from left to right
-    boundaryL = TensorMap(ones, space(mps[1], 1), space(mps[1], 1) ⊗ space(mpo[1], 1));
-    for i = 1 : 1 : N
-        @tensor boundaryL[-1; -2 -3] := boundaryL[1, 7, 4] * mps[i][7, 5, 6, -2] * mpo[i][4, 2, 3, 5, 6, -3] * conj(mps[i][1, 2, 3, -1]);
-    end
-
-    boundaryR = TensorMap(ones, space(mps[N], 4)' ⊗ space(mpo[N], 6)', space(mps[N], 4)');            
-
-    # contract to get expectation value
-    expVal = tr(boundaryL * boundaryR);
-    if abs(imag(expVal)) < 1e-12
-        expVal = real(expVal);
-    else
-        ErrorException("The Hamiltonian is not Hermitian, complex eigenvalue found.")
-    end
-    
-    return expVal;
 end
 
 
@@ -207,22 +181,61 @@ function computeSiteExpVal_mps(mps, onsiteOp)
 end
 
 
-function addMPSMPS(mps1::Vector{TensorMap}, mps2::Vector{TensorMap})::Vector{TensorMap}
+function computeExpVal(mps, mpo)::Float64
+    """ 
+    Compute expectation value Tr(ρ† . A . ρ)
+    """
+    N = length(mps);
+    mps = orthonormalizeMPS(mps);
+
+    # contract from left to right
+    boundaryL = TensorMap(ones, space(mps[1], 1), space(mps[1], 1) ⊗ space(mpo[1], 1));
+    for i = 1 : 1 : N
+        @tensor boundaryL[-1; -2 -3] := boundaryL[1, 7, 4] * mps[i][7, 5, 6, -2] * mpo[i][4, 2, 3, 5, 6, -3] * conj(mps[i][1, 2, 3, -1]);
+    end
+    boundaryR = TensorMap(ones, space(mps[N], 4)' ⊗ space(mpo[N], 6)', space(mps[N], 4)');            
+
+    # contract to get expectation value
+    expVal = tr(boundaryL * boundaryR);
+    if abs(imag(expVal)) < 1e-12
+        expVal = real(expVal);
+    else
+        ErrorException("The Hamiltonian is not Hermitian, complex eigenvalue found.")
+    end
+    
+    return expVal;
+end
+
+
+function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{TensorMap}
     """
     Add 2 MPS of the same bond dimension
     """
-    resultMPS = Vector{TensorMap}(undef, N);
+    N = length(mpoA);
+    MPOC = Vector{TensorMap}(undef, N);
     
-    for i = 1 : N
-        dim1, dim2, dim3, dim4 = dim(space(mps1[i])[1]), 
-                                 dim(space(mps1[i])[2]) + dim(space(mps2[i])[2]),
-                                 dim(space(mps1[i])[3]) + dim(space(mps2[i])[3]),
-                                 dim(space(mps1[i])[4]);
-        tensor = zeros(ComplexF64,dim1, dim2, dim3, dim4)
-        # tensor[1, :, :, 1] = 
-        resultMPS[i] = TensorMap(tensor, ComplexSpace(dim1) ⊗ ComplexSpace(dim2) ⊗ ComplexSpace(dim3)', ComplexSpace(dim4));
+    # left boundary tensor
+    idxMPO = 1;
+    isoRA = isometry(space(mpoA[idxMPO], 4)' ⊕ space(mpoB[idxMPO], 4)', space(mpoA[idxMPO], 4)')';
+    isoRB = rightnull(isoRA);
+    @tensor newTensor[-1 -2 -3; -4] := mpoA[idxMPO][-1, -2, -3, 4] * isoRA[4, -4] + mpoB[idxMPO][-1, -2, -3, 4] * isoRB[4, -4];
+    MPOC[idxMPO] = newTensor;
 
-
+    # bulk tensors
+    for idxMPO = 2 : (N - 1)
+        isoLA = isometry(space(mpoA[idxMPO], 1) ⊕ space(mpoB[idxMPO], 1), space(mpoA[idxMPO], 1));
+        isoLB = leftnull(isoLA);
+        isoRA = isometry(space(mpoA[idxMPO], 4)' ⊕ space(mpoB[idxMPO], 4)', space(mpoA[idxMPO], 4)')';
+        isoRB = rightnull(isoRA);
+        @tensor newTensor[-1 -2 -3; -4] := isoLA[-1, 1] * mpoA[idxMPO][1, -2, -3, 4] * isoRA[4, -4] + isoLB[-1, 1] * mpoB[idxMPO][1, -2, -3, 4] * isoRB[4, -4];
+        MPOC[idxMPO] = newTensor;
     end
-    return resultMPS        
+
+    # right boundary tensor
+    idxMPO = N;
+    isoLA = isometry(space(mpoA[idxMPO], 1) ⊕ space(mpoB[idxMPO], 1), space(mpoA[idxMPO], 1));
+    isoLB = leftnull(isoLA);
+    @tensor newTensor[-1 -2 -3; -4] := isoLA[-1 1] * mpoA[idxMPO][1 -2 -3 -4] + isoLB[-1 1] * mpoB[idxMPO][1 -2 -3 -4];
+    MPOC[idxMPO] = newTensor;
+    return MPOC        
 end

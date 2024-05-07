@@ -126,18 +126,3 @@ function constructLindbladDagMPO(omega::Float64, gamma::Float64, N::Int64)::Vect
 
     return lindbladDagMPO;
 end
-
-
-function constructNumberOps(N::Int64)::Vector{TensorMap}
-    """
-    Construct particle number operator
-    """
-    numberOps = Vector{TensorMap}(undef, N);
-    numberOp = (kron([0 0; 0 1], [1 0; 0 1]) + kron([1 0; 0 1], [0 0; 0 1]));
-    
-    for i = 1 : N
-        numberOps[i] = TensorMap(numberOp, ℂ^1 ⊗ ℂ^2 ⊗ conj(ℂ^2), ℂ^2 ⊗ conj(ℂ^2) ⊗ ℂ^1);
-    end
-
-    return numberOps;
-end
