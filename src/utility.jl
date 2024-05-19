@@ -14,11 +14,11 @@ function initializeRandomMPS(N, d::Int64 = 2; bonddim:: Int64 = 1)::Vector{Tenso
     randomMPS = Vector{TensorMap}(undef, N);
 
     # left MPO boundary
-    randomMPS[1] = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
+    randomMPS[1] = TensorMap(ones, ComplexSpace(1) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
     for i = 2 : (N-1)
-        randomMPS[i] = TensorMap(randn, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
+        randomMPS[i] = TensorMap(ones, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)',  ComplexSpace(bonddim));
     end
-    randomMPS[N] = TensorMap(randn, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)', ComplexSpace(1));
+    randomMPS[N] = TensorMap(ones, ComplexSpace(bonddim) ⊗ ComplexSpace(d) ⊗ ComplexSpace(d)', ComplexSpace(1));
 
     return randomMPS;
 end
@@ -110,9 +110,14 @@ function computeSiteExpVal_vMPO(mps, mpo)::Vector
 
     # compute expectation values
     expVals = zeros(Float64, N);
+
+    mps = orthogonalizeMPS(mps, 1); 
+
+    psiNormSq = real(tr(mps[1]' * mps[1]));
     for i = 1 : N
         boundaryL = TensorMap(ones, one(ComplexSpace()), ℂ^1);
         boundaryR = TensorMap(ones, ℂ^1, one(ComplexSpace()));
+        
         for j = 1 :N
             if j==i
                 @tensor contraction[-1; -2] := mps[j][-1, 1, 2, -2] * mpo[2, 1];
@@ -127,7 +132,7 @@ function computeSiteExpVal_vMPO(mps, mpo)::Vector
         expVal = tr(boundaryL * boundaryR);
 
         if abs(imag(expVal)) < 1e-12
-            expVals[i] = real(expVal);
+            expVals[i] = real(expVal) / psiNormSq;
         else
             ErrorException("The Hamiltonian is not Hermitian, complex eigenvalue found.")
         end
@@ -146,29 +151,18 @@ function computeSiteExpVal_mps(mps, onsiteOp)
     # get length of mps
     N = length(mps);
 
-    # compute Hermitian part of MPO
-    hermitMPS = Vector{TensorMap}(undef, N);
-    for i = 1 : N
-        mps_dag_i = TensorMap(conj(convert(Array, mps[i])), codomain(mps[i]), domain(mps[i]));
-        hermitMPS[i] = mps_dag_i + mps[i] 
-    end
-    hermitMPS /= 2
-
-    # compute expectation values
-    _boundaryL = TensorMap(ones, one(ComplexSpace()), space(onsiteOp)[1]);
-    _boundaryR = TensorMap(ones, conj(space(onsiteOp)[6]), one(ComplexSpace()));
-    @tensor onsiteOp[-3 -4; -1 -2] := _boundaryL[1] * onsiteOp[1,-3,-4,-1,-2,2] * _boundaryR[2]
-
+    
     expVals = zeros(Float64, N);
+    mps = orthogonalizeMPS(mps, 1); 
+    psiNormSq = real(tr(mps[1]' * mps[1]));
     for i = 1 : N
-
         # bring MPS into canonical form
-        hermitMPS = orthogonalizeMPS(hermitMPS, i); 
-        psiNormSq = real(tr(hermitMPS[i]' * hermitMPS[i]));
-        
+
+        mps = orthogonalizeMPS(mps, i); 
+
         # compute expectation value
         
-        expVal = @tensor conj(hermitMPS[i][-1, 2, 3, -6]) * onsiteOp[2, 3, 4, 5] * hermitMPS[i][-1, 4, 5, -6];
+        expVal = @tensor conj(mps[i][1,2,4,5]) * onsiteOp[2,3] * mps[i][1, 3,4,5];
         if abs(imag(expVal)) < 1e-12
             expVal = real(expVal);
             expVals[i] = expVal / psiNormSq;
@@ -212,14 +206,14 @@ function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{Ten
     Add 2 MPS of the same bond dimension
     """
     N = length(mpoA);
-    MPOC = Vector{TensorMap}(undef, N);
+    mpoC = Vector{TensorMap}(undef, N);
     
     # left boundary tensor
     idxMPO = 1;
     isoRA = isometry(space(mpoA[idxMPO], 4)' ⊕ space(mpoB[idxMPO], 4)', space(mpoA[idxMPO], 4)')';
     isoRB = rightnull(isoRA);
     @tensor newTensor[-1 -2 -3; -4] := mpoA[idxMPO][-1, -2, -3, 4] * isoRA[4, -4] + mpoB[idxMPO][-1, -2, -3, 4] * isoRB[4, -4];
-    MPOC[idxMPO] = newTensor;
+    mpoC[idxMPO] = newTensor;
 
     # bulk tensors
     for idxMPO = 2 : (N - 1)
@@ -228,7 +222,7 @@ function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{Ten
         isoRA = isometry(space(mpoA[idxMPO], 4)' ⊕ space(mpoB[idxMPO], 4)', space(mpoA[idxMPO], 4)')';
         isoRB = rightnull(isoRA);
         @tensor newTensor[-1 -2 -3; -4] := isoLA[-1, 1] * mpoA[idxMPO][1, -2, -3, 4] * isoRA[4, -4] + isoLB[-1, 1] * mpoB[idxMPO][1, -2, -3, 4] * isoRB[4, -4];
-        MPOC[idxMPO] = newTensor;
+        mpoC[idxMPO] = newTensor;
     end
 
     # right boundary tensor
@@ -236,6 +230,17 @@ function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{Ten
     isoLA = isometry(space(mpoA[idxMPO], 1) ⊕ space(mpoB[idxMPO], 1), space(mpoA[idxMPO], 1));
     isoLB = leftnull(isoLA);
     @tensor newTensor[-1 -2 -3; -4] := isoLA[-1 1] * mpoA[idxMPO][1 -2 -3 -4] + isoLB[-1 1] * mpoB[idxMPO][1 -2 -3 -4];
-    MPOC[idxMPO] = newTensor;
-    return MPOC        
+    mpoC[idxMPO] = newTensor;
+    return mpoC        
+end
+
+
+function computeRhoDag(mps::Vector{TensorMap})::Vector{TensorMap}
+    
+    mpsDag = Vector{TensorMap}(undef, length(mps));
+    for i = 1 : length(mps)
+        mpsDag[i] = TensorMap(conj(permutedims(convert(Array, mps[i]), (1,3,2,4))), codomain(mps[i]), domain(mps[i])); 
+    end
+    
+    return mpsDag
 end
