@@ -192,7 +192,7 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
             bondTensor = mps[i] * permute(mps[i+1], (1, ), (2, 3, 4));
 
             # optimize wave function to get newTensor
-            _, eigenVec = eigsolve(bondTensor, 1, :SR, Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
+            _, eigenVec = eigsolve(bondTensor, 1, :SR, Arnoldi(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
                 applyH2(x, mpoEnvL[i], mpo[i], mpo[i + 1], mpoEnvR[i + 1])
             end
 
@@ -215,7 +215,7 @@ function DMRG2(mps::Vector{TensorMap}, mpo::Vector{TensorMap};
             bondTensor = mps[i] * permute(mps[i+1], (1, ), (2, 3, 4));
 
             # optimize wave function to get newTensor
-            _, eigenVec = eigsolve(bondTensor, 1, :SR, Lanczos(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
+            _, eigenVec = eigsolve(bondTensor, 1, :SR, Arnoldi(tol = eigsTol, maxiter = maxIterations)) do x # 1 eigenVal
                 applyH2(x, mpoEnvL[i], mpo[i], mpo[i + 1], mpoEnvR[i + 1])
             end
 

@@ -102,7 +102,7 @@ end
 
 function computeSiteExpVal_vMPO(mps, mpo)::Vector
     """ 
-    Compute expectation value <a> = (1/N) . ∑_k Tr(ρA_k)
+    Compute Tr(ρA_k) in <a> = (1/N) . ∑_k 
     """
 
     # get length of mps
