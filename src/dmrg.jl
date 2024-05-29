@@ -1,4 +1,3 @@
-# module dmrgVMPO
 include("utility.jl")
 
 using LinearAlgebra
@@ -23,7 +22,6 @@ end
 
 
 function applyH1(X::TensorMap, EnvL::TensorMap, mpo::TensorMap, EnvR::TensorMap)::TensorMap
-    # @tensor X[-1 -2 -3; -4 -5 -6] := EnvL[-1, 2, 1] * X[2, 3, 4, 6, 7, 8] * mpo1[1, -2, -3, 3, 4, 5] * mpo2[5, -4, -5, 6, 7, 9] * EnvR[8, 9, -6];
     @tensor X[-1 -2 -3; -4] := EnvL[-1, 2, 1] * X[2, 3, 4, 5] * mpo[1, -2, -3, 3, 4, 6] * EnvR[5, 6, -4];
     return X;
 end
@@ -71,7 +69,7 @@ function DMRG1(mps::Vector{TensorMap}, mpo::Vector{TensorMap}; convTolE::Float64
     """
     N = length(mps);
 
-    initialEnergy = (1 / N) * sum(computeExpVal(mps, mpo));
+    initialEnergy = computeExpVal(mps, mpo);
     mpsEnergy = Float64[initialEnergy];
     
     mpoEnvL, mpoEnvR = initializeMPOEnvs(mps, mpo);
@@ -145,7 +143,7 @@ function DMRG1(mps::Vector{TensorMap}, mpo::Vector{TensorMap}; convTolE::Float64
 
 
         # compute expectation value
-        expVal = (1 / N) * sum(computeExpVal(mps, mpo));
+        expVal = computeExpVal(mps, mpo);
         if abs(imag(expVal)) < 1e-12
             expVal = real(expVal);
         else

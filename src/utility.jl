@@ -42,7 +42,7 @@ function initializeBasisMPS(N::Int64, basis::Vector; d::Int64 = 2)::Vector{Tenso
 end
 
 
-function orthogonalizeMPS(mps, orthoCenter::Int)::Vector{TensorMap}
+function orthogonalizeMPS(mps, orthoCenter::Int = 1)::Vector{TensorMap}
 
     N = length(mps);
     orthoMPS = deepcopy(mps);
@@ -203,7 +203,7 @@ end
 
 function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{TensorMap}
     """
-    Add 2 MPS of the same bond dimension
+    Add 2 MPS
     """
     N = length(mpoA);
     mpoC = Vector{TensorMap}(undef, N);

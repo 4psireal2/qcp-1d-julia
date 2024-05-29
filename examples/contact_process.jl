@@ -3,7 +3,8 @@ L up to 50
 """
 
 include("contact_process_model.jl")
-include("../src/dmrgVMPO.jl")
+include("../src/dmrg.jl")
+include("../src/dmrg_excited.jl")
 include("../src/utility.jl")
 
 using Statistics
@@ -17,7 +18,7 @@ gamma = 1.0;
 d = 2; # physical dimension
 
 ### System parameters
-N = 10;
+N = 20;
 bondDim = 10;
 
 ### common operators
@@ -41,8 +42,16 @@ end
 println("Elapsed time for DMRG1: $elapsed_time seconds")
 @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
 
-
 hermit_gsMPS = addMPSMPS(gsMPS, computeRhoDag(gsMPS));
+
+# hermit_gsMPS = orthogonalizeMPS(hermit_gsMPS);
+# normMPS = real(tr(hermit_gsMPS[1]' * hermit_gsMPS[1]));
+# @show normMPS
+
+# hermit_gsMPS = orthonormalizeMPS(hermit_gsMPS);
+# normMPS = real(tr(hermit_gsMPS[1]' * hermit_gsMPS[1]));
+# @show normMPS
+
 
 number_density_vMPO = computeSiteExpVal_vMPO(hermit_gsMPS, numberOp);
 number_density_mps = computeSiteExpVal_mps(hermit_gsMPS, numberOp);
@@ -50,5 +59,8 @@ number_density_mps = computeSiteExpVal_mps(hermit_gsMPS, numberOp);
 @show number_density_mps
 @show mean(number_density_vMPO)
 @show mean(number_density_mps)
+
+### DMRG1 excited
+first_exc = find_excitedstate(initialMPS, lindbladHermitian, [hermit_gsMPS], DMRG1_params())
 
 nothing
