@@ -1,5 +1,5 @@
 include("../examples/contact_process_model.jl")
-include("../src/dmrgVMPO.jl")
+include("../src/dmrg.jl")
 include("../src/utility.jl")
 using Printf
 using LinearAlgebra
@@ -116,6 +116,19 @@ boundaryR = TensorMap(ones, ComplexSpace(1), one(ComplexSpace()))
 hermit_mat = reshape(convert(Array, hermit_mat), (8,8));
 @assert norm(hermit_mat - hermit_mat') == 0.0
 
+
+basis = fill(basis1*basis1', N);
+basisMPS = initializeBasisMPS(N, basis, d=d);
+
+non_hermitian = addMPSMPS(computeRhoDag(basisMPS), -1 * basisMPS);
+non_hermitian = orthogonalizeMPS(non_hermitian);
+norm_non_hermitian = real(tr(non_hermitian[1]' * non_hermitian[1]));
+@assert norm_non_hermitian == 0.0
+
+hermitian = addMPSMPS(computeRhoDag(basisMPS), basisMPS);
+hermitian = orthonormalizeMPS(hermitian);
+norm_hermitian = real(tr(hermitian[1]' * hermitian[1]));
+@assert norm_hermitian == 1.0
 
 nothing
 

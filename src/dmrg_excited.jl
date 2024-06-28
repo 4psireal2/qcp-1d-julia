@@ -145,7 +145,7 @@ function find_excitedstate!(finiteMPS::Vector{TensorMap}, finiteMPO::Vector{Tens
                 finiteMPS[siteIdx] = permute(Q, (1, 2, 3), (4, ));
                 finiteMPS[siteIdx + 1] = permute(R * permute(finiteMPS[siteIdx + 1], (1, ), (2, 3, 4)), (1, 2, 3), (4, ));
 
-                # shift orthogonality center of previousMPS to the right
+                # shift orthogonality center of previousMPS to the left
                 for orthIdx = eachindex(previousMPS)
                     (Q, R) = leftorth(previousMPS[orthIdx][siteIdx], (1, 2, 3), (4, ), alg = QRpos());
                     previousMPS[orthIdx][siteIdx + 0] = permute(Q, (1, 2, 3), (4, ));
@@ -154,20 +154,16 @@ function find_excitedstate!(finiteMPS::Vector{TensorMap}, finiteMPO::Vector{Tens
                     projEnvsL[orthIdx][siteIdx + 1] = update_MPSEnvL(projEnvsL[orthIdx][siteIdx], finiteMPS[siteIdx], previousMPS[orthIdx][siteIdx]);
                 end
 
-
                 # update mpoEnvL
                 mpoEnvL[siteIdx + 1] = updateMPOEnvL(mpoEnvL[siteIdx], finiteMPS[siteIdx], finiteMPO[siteIdx], finiteMPS[siteIdx]);
-            ##################### XXX: Correct no?
             else
                 finiteMPS[siteIdx] = newTheta;
             end
-            #####################
-
-
+            
         end
 
         # sweep L <--- R
-        for siteIdx = (N - 1) : -1 : 1
+        for siteIdx = N : -1 : 1
 
             # construct initial theta
             thetaN = finiteMPS[siteIdx];
@@ -193,33 +189,30 @@ function find_excitedstate!(finiteMPS::Vector{TensorMap}, finiteMPO::Vector{Tens
                 (L, Q) = rightorth(newTheta, (1, ), (2, 3, 4), alg = LQpos());
                 L /= norm(L);
                 finiteMPS[siteIdx] = permute(Q, (1, 2, 3), (4, ));
-
-                # absorb L into previous MPS site
                 finiteMPS[siteIdx - 1] = permute(finiteMPS[siteIdx - 1] * L, (1, 2, 3), (4, ));
 
-                # update mpoEnvR
-                mpoEnvR[siteIdx - 1] = updateMPOEnvR(mpoEnvR[siteIdx], finiteMPS[siteIdx], finiteMPO[siteIdx], finiteMPS[siteIdx]);
 
                 # shift orthogonality center of previousMPS to the right
                 for orthIdx = eachindex(previousMPS)
                     (L, Q) = rightorth(previousMPS[orthIdx][siteIdx], (1, ), (2, 3, 4), alg = LQpos());
-                    previousMPS[orthIdx][siteIdx + 0] = permute(permute(previousMPS[orthIdx][siteIdx + 0], (1, 2, 3), (4, )) * L, (1, 2, 3), (4, ));
-                    previousMPS[orthIdx][siteIdx + 1] = permute(Q, (1, 2, 3), (4, ));
+                    previousMPS[orthIdx][siteIdx - 1] = permute(permute(previousMPS[orthIdx][siteIdx - 1], (1, 2, 3), (4, )) * L, (1, 2, 3), (4, ));
+                    previousMPS[orthIdx][siteIdx + 0] = permute(Q, (1, 2, 3), (4, ));
+
+                    projEnvsR[orthIdx][siteIdx - 1] = update_MPSEnvR(projEnvsR[orthIdx][siteIdx], finiteMPS[siteIdx], previousMPS[orthIdx][siteIdx]);
+
                 end
 
-                # update projEnvsR
-                for orthIdx = eachindex(previousMPS)
-                    projEnvsR[orthIdx][siteIdx + 0] = update_MPSEnvR(projEnvsR[orthIdx][siteIdx + 1], finiteMPS[siteIdx + 1], previousMPS[orthIdx][siteIdx + 1]);
-                end
+                # update mpoEnvR
+                mpoEnvR[siteIdx - 1] = updateMPOEnvR(mpoEnvR[siteIdx], finiteMPS[siteIdx], finiteMPO[siteIdx], finiteMPS[siteIdx]);
+
             else
-                finiteMPS[siteIdx] = newTensor;
+                finiteMPS[siteIdx] = newTheta;
             end
-
         end
 
-        # # normalize MPS after DMRG step
-        # mpsNorm = tr(finiteMPS[1]' * finiteMPS[1]);
-        # finiteMPS[1] /= sqrt(mpsNorm);
+        # normalize MPS after DMRG step
+        mpsNorm = tr(finiteMPS[1]' * finiteMPS[1]);
+        finiteMPS[1] /= sqrt(mpsNorm);
 
         # compute MPO expectation value
         mpoExpVal = computeExpVal(finiteMPS, finiteMPO);

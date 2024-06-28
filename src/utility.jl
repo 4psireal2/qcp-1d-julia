@@ -100,6 +100,30 @@ function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})::Vecto
 end
 
 
+function multiplyMPOMPS(mpo::Vector{TensorMap}, mps::Vector{TensorMap})::Vector{TensorMap}
+    """
+    Compute mpo1*mpo2
+    """
+    length(mpo) == length(mps) || throw(ArgumentError("dimension mismatch"))
+    N = length(mpo);
+
+    fusers = PeriodicArray(map(zip(mps, mpo)) do (mpo, mps)
+        return isometry(fuse(space(mpo, 1), space(mps, 1)),
+                         space(mpo, 1) * space(mps, 1))
+    end)
+
+    resultMPS = Vector{TensorMap}(undef, N);
+    for i = 1 : N
+        @tensor resultMPS[i][-1 -2 -3; -4 -5 -6] := mpo[i][1 2 3; -4 -5 4] *
+                                                    mps[i][5 -2 -3; 2 3 6] *
+                                                    fusers[i][-1; 1 5] *
+                                                    conj(fusers[i+1][-6; 4 6])
+    end
+
+    return resultMPS
+end
+
+
 function computeSiteExpVal_vMPO(mps, mpo)::Vector
     """ 
     Compute Tr(ρA_k) in <a> = (1/N) . ∑_k 
@@ -201,7 +225,7 @@ function computeExpVal(mps, mpo)::Float64
 end
 
 
-function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{TensorMap}
+function addMPSMPS(mpoA, mpoB)::Vector{TensorMap}
     """
     Add 2 MPS
     """
@@ -235,7 +259,7 @@ function addMPSMPS(mpoA::Vector{TensorMap}, mpoB::Vector{TensorMap})::Vector{Ten
 end
 
 
-function computeRhoDag(mps::Vector{TensorMap})::Vector{TensorMap}
+function computeRhoDag(mps)
     
     mpsDag = Vector{TensorMap}(undef, length(mps));
     for i = 1 : length(mps)
