@@ -24,7 +24,7 @@ numberOpR = kron(numberOp, Id);
 numberOpL = kron(Id, numberOp);
 
 # check LPTN format
-X = orthonormalizeX(createXRand(N, krausDim=3, bondDim=3));
+X = orthonormalizeX(createXOnes(N, krausDim=3, bondDim=3));
 
 @show computeNorm(X)
 @assert isapprox(computeNorm(X), 1.0) 
@@ -33,9 +33,8 @@ basis0 = [1, 0];
 basis1 = [0, 1];
 
 XBasis1 = createXBasis(N, basis1);
-XBasis1Dag = createXDag(XBasis1);
 numberOp = TensorMap(numberOp, ℂ^2, ℂ^2);
-siteParticleNum = computeSiteExpVal(XBasis1, XBasis1Dag, numberOp);
+siteParticleNum = computeSiteExpVal(XBasis1, numberOp);
 @assert siteParticleNum == fill(1.0, N)
 
 # check Kraus operator
