@@ -23,19 +23,31 @@ Id = [+1 0 ; 0 +1];
 numberOpR = kron(numberOp, Id);
 numberOpL = kron(Id, numberOp);
 
-# check LPTN format
-X = orthonormalizeX(createXOnes(N, krausDim=3, bondDim=3));
-
+# check norm of LPTN format
+X = orthonormalizeX(createXOnes(N, krausDim=3, bondDim=5));
 @show computeNorm(X)
-@assert isapprox(computeNorm(X), 1.0) 
-# compute number density
+@assert isapprox(computeNorm(X), 1.0)
+@show computePurity(X) 
+
+# check purity of LPTN format
 basis0 = [1, 0];
 basis1 = [0, 1];
 
-XBasis1 = createXBasis(N, basis1);
+XSup = createXBasis(1, fill(1/(sqrt(2)) * (basis0 + basis1), 1)); 
+@show computeNorm(XSup)
+@show computePurity(XSup)
+
+# A pure bipartite state is maximally entangled, if the reduced density matrix on either system is maximally mixed.
+XMixed  = createXMixed1();
+@show computeNorm(XMixed)
+@show computePurity(XMixed)
+
+# compute number density
+
+XBasis1 = createXBasis(N, fill(basis1, N));
 numberOp = TensorMap(numberOp, ℂ^2, ℂ^2);
 siteParticleNum = computeSiteExpVal(XBasis1, numberOp);
-@assert siteParticleNum == fill(1.0, N)
+@assert siteParticleNum == 1.0
 
 # check Kraus operator
 diss = GAMMA * kron(annihilationOp, annihilationOp) - (1/2) * numberOpR - (1/2) * numberOpL;
@@ -48,7 +60,7 @@ B = expDiss(GAMMA, TAU);
 @tensor checkKrausOp_1[-1 -2; -3 -4] := B'[-1, -3, 1] * B[-4, 1, -2];
 @show norm(checkKrausOp_1 - diss)
 
-# # run dynamics simulation
+# run dynamics simulation
 hamDyn = expHam(OMEGA, TAU/2);
 dissDyn = expDiss(GAMMA, TAU);
 X_t = X;

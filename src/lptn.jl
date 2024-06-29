@@ -25,15 +25,33 @@ end
 function createXBasis(N::Int64, basis; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
 
     X = Vector{TensorMap}(undef, N);
-
-    X[1] = TensorMap(basis, ComplexSpace(1) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
+    X[1] = TensorMap(basis[1], ComplexSpace(1) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
     for i = 2 : (N-1)
-        X[i] = TensorMap(basis, ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
+        X[i] = TensorMap(basis[i], ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
     end 
-    X[N] = TensorMap(basis, ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(1));
+    X[N] = TensorMap(basis[N], ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(1));
 
     return X
 end
+
+
+function createXMixed1()
+
+    X = Vector{TensorMap}(undef, 1);
+    X[1] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(2) ⊗ ComplexSpace(1));
+
+    return X
+end
+
+
+# function createXMixed2()
+
+#     X = Vector{TensorMap}(undef, 2);
+#     X[1] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(2) ⊗ ComplexSpace(1));
+#     X[2] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(d) ⊗ ComplexSpace(1));
+
+#     return X
+# end
 
 
 function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})
@@ -118,6 +136,27 @@ function computeNorm(X)::Float64
 end
 
 
+function computePurity(X)::Float64
+    # XXX: a more efficient way ?
+    N = length(X);
+
+    boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1);
+    boundaryR = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1);
+
+    for i = 1 : N
+        @tensor boundaryL[-1 -2; -3 -4] := boundaryL[4, 8, 1, 6] * X[i][1, 2, 3, -3] * conj(X[i][4, 2, 5, -1]) * X[i][6, 7, 5, -4] * conj(X[i][8, 7, 3, -2]);
+    end
+
+    purity = tr(boundaryL * boundaryR)
+    
+    if abs(imag(purity)) < 1e-12
+        return purity
+    else
+        ErrorException("Complex purity is found.")
+    end
+end
+
+
 function computeSiteExpVal(X, onSiteOp)
     N = length(X);
 
@@ -144,8 +183,9 @@ function computeSiteExpVal(X, onSiteOp)
             ErrorException("Complex expectation value is found.")
         end
     end
-
-    return expVals
+    println("Expectation value on each site: $(expVals)")
+    
+    return sum(expVals)/N
 end
 
 
