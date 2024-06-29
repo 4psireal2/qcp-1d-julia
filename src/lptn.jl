@@ -23,7 +23,6 @@ end
 
 
 function createXBasis(N::Int64, basis; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
-
     X = Vector{TensorMap}(undef, N);
     X[1] = TensorMap(basis[1], ComplexSpace(1) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
     for i = 2 : (N-1)
@@ -129,7 +128,7 @@ function computeNorm(X)::Float64
     lptnNorm = tr(boundaryL * boundaryR)
     
     if abs(imag(lptnNorm)) < 1e-12
-        return lptnNorm
+        return real(lptnNorm)
     else
         ErrorException("Complex norm is found.")
     end
@@ -170,9 +169,9 @@ function computeSiteExpVal(X, onSiteOp)
 
         for j in 1 : N
             if j==i
-                @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[i][3, 1, 5, -1]) * X[i][4, 1, 2, -2] * onSiteOp[2, 5];
+                @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 5, -1]) * X[j][4, 1, 2, -2] * onSiteOp[2, 5];
             else
-                @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[i][3, 1, 2, -1]) * X[i][4, 1, 2, -2];
+                @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 2, -1]) * X[j][4, 1, 2, -2];
             end
         end
 
@@ -185,7 +184,7 @@ function computeSiteExpVal(X, onSiteOp)
     end
     println("Expectation value on each site: $(expVals)")
     
-    return sum(expVals)/N
+    return expVals, sum(expVals)/N
 end
 
 
