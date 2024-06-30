@@ -37,8 +37,9 @@ X_t = XInit;
 for i = 1 : nTimeSteps
     global  X_t
     X_t = TEBD(X_t, hamDyn, dissDyn, BONDDIM, KRAUSDIM, truncErr);
-
+    println("At t=$(i*dt)")
     n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal(X_t, numberOp);
+    println("Number particles at each site $(n_sites_t[i+1, :])")
 end
 
 

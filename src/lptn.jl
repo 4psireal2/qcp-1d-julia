@@ -34,25 +34,6 @@ function createXBasis(N::Int64, basis; d::Int64 = 2, bondDim::Int64 = 1,  krausD
 end
 
 
-function createXMixed1()
-
-    X = Vector{TensorMap}(undef, 1);
-    X[1] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(2) ⊗ ComplexSpace(1));
-
-    return X
-end
-
-
-# function createXMixed2()
-
-#     X = Vector{TensorMap}(undef, 2);
-#     X[1] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(2) ⊗ ComplexSpace(1));
-#     X[2] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(d) ⊗ ComplexSpace(1));
-
-#     return X
-# end
-
-
 function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})
     """
     Compute mpo1*mpo2
@@ -182,9 +163,70 @@ function computeSiteExpVal(X, onSiteOp)
             ErrorException("Complex expectation value is found.")
         end
     end
-    println("Expectation value on each site: $(expVals)")
     
     return expVals, sum(expVals)/N
 end
 
 
+function densDensCorr(r::Int64, X, onSiteOp)
+    """
+    Compute  <O_{r} . O_{0}> - <O_{0}>^2 with trace
+    """
+
+    N = length(X);
+    lptnNorm = computeNorm(X);
+
+    # compute <O_{r} . O_{0}>
+    boundaryL = TensorMap(ones, ℂ^1, ℂ^1);
+    boundaryR = TensorMap(ones, ℂ^1, ℂ^1);
+
+    for j in 1 : N
+        if j==1 ||  j==r
+            @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 5, -1]) * X[j][4, 1, 2, -2] * onSiteOp[2, 5];
+        else
+            @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 2, -1]) * X[j][4, 1, 2, -2];
+        end
+    end
+
+    meanProduct = tr(boundaryL * boundaryR);
+    if abs(imag(meanProduct)) < 1e-12
+        meanProduct = real(meanProduct) / lptnNorm;
+    else
+        ErrorException("Complex expectation value is found.")
+    end
+
+    # compute <O_{0}>^2
+    boundaryL = TensorMap(ones, ℂ^1, ℂ^1);
+    boundaryR = TensorMap(ones, ℂ^1, ℂ^1);
+
+    for j in 1 : N
+        if j==0
+            @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 5, -1]) * X[j][4, 1, 2, -2] * onSiteOp[2, 5];
+        else
+            @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 2, -1]) * X[j][4, 1, 2, -2];
+        end
+    end
+    productMean = tr(boundaryL * boundaryR);
+    if abs(imag(productMean)) < 1e-12
+        productMean = (real(productMean) / lptnNorm)^2;
+    else
+        ErrorException("Complex expectation value is found.")
+    end
+
+    return meanProduct - productMean
+end
+
+
+function computeEntSpec(X)
+    """
+    Compute entanglement spectrum for the bipartion of LPTN chain
+    """
+
+    N = length(X);
+    indL, indR = N÷2, N÷2 + 1;
+    @tensor bondTensor[-1 -4 -7 -8; -2 -3 -5 -6] := X[indL][-1, 1, -2, 2] * conj(X[indL][-3, 1, -4, 3]) * X[indR][2, 4, -5, -6] * conj(X[indR][3, 4, -7, -8]);
+    
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 5, 6), (3, 4, 7, 8), alg = TensorKit.SVD());
+    
+    return S
+end

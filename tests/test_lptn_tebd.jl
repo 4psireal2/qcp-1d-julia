@@ -27,15 +27,40 @@ numberOpL = kron(Id, numberOp);
 X = orthonormalizeX(createXOnes(N, krausDim=3, bondDim=5));
 @show computeNorm(X)
 @assert isapprox(computeNorm(X), 1.0)
-@show computePurity(X) 
+@show computePurity(X)
+@assert isapprox(computePurity(X), 1.0)
 
 # check purity of LPTN format
+function createXMixed1()
+
+    X = Vector{TensorMap}(undef, 1);
+    X[1] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(2) ⊗ ComplexSpace(1));
+
+    return X
+end
+
+
+# function createXMixed2()
+
+#     X = Vector{TensorMap}(undef, 2);
+#     X[1] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(2) ⊗ ComplexSpace(1));
+#     X[2] = TensorMap( (1/ sqrt(2)) * [1 0; 0 1], ComplexSpace(1) ⊗ ComplexSpace(2),  ComplexSpace(d) ⊗ ComplexSpace(1));
+
+#     return X
+# end
+
+
+
 basis0 = [1, 0];
 basis1 = [0, 1];
 
-XSup = createXBasis(1, fill(1/(sqrt(2)) * (basis0 + basis1), 1)); 
+XSup = createXBasis(N, fill(1/(sqrt(2)) * (basis0 + basis1), N));  # superposition state
 @show computeNorm(XSup)
+@assert isapprox(computeNorm(XSup), 1.0)
 @show computePurity(XSup)
+@assert isapprox(computePurity(XSup), 1.0)
+@show computeEntSpec(XSup)
+
 
 # A pure bipartite state is maximally entangled, if the reduced density matrix on either system is maximally mixed.
 XMixed  = createXMixed1();
@@ -43,11 +68,17 @@ XMixed  = createXMixed1();
 @show computePurity(XMixed)
 
 # compute number density
-
 XBasis1 = createXBasis(N, fill(basis1, N));
 numberOp = TensorMap(numberOp, ℂ^2, ℂ^2);
-siteParticleNum = computeSiteExpVal(XBasis1, numberOp);
+_, siteParticleNum = computeSiteExpVal(XBasis1, numberOp);
 @assert siteParticleNum == 1.0
+
+# compute density-density correlation XXX: How to test this function?
+correlation = zeros(N-1);
+for i in 2:N
+    correlation[i-1] = densDensCorr(i, XBasis1, numberOp)
+end
+@show correlation
 
 # check Kraus operator
 diss = GAMMA * kron(annihilationOp, annihilationOp) - (1/2) * numberOpR - (1/2) * numberOpL;
