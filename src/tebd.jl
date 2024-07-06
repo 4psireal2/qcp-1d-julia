@@ -2,7 +2,7 @@ using LinearAlgebra
 using TensorKit
 
 
-function expHam(omega::Float64, tau::Float64)
+function expHam(omega, tau)
     sigmaX = 0.5 * [0 +1 ; +1 0];
     numberOp = [0 0; 0 1];
     ham = omega * (kron(sigmaX,numberOp) + kron(numberOp, sigmaX));
@@ -15,7 +15,7 @@ function expHam(omega::Float64, tau::Float64)
 end
 
 
-function expDiss(gamma::Float64, tau::Float64)
+function expDiss(gamma, tau)
     annihilationOp = [0 1; 0 0];
     numberOp = [0 0; 0 1];
     Id = [+1 0 ; 0 +1];
@@ -37,9 +37,12 @@ end
 
 function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     """
-    2nd order TEBD with dissipative layer
+    2nd order TEBD with dissipative layer for one time step
     """
 
+    ϵHTrunc = 0;
+    ϵDTrunc = 0;
+    N = length(X);
 
     # sweep L ---> R [odd]
     for i = 1 : 2 : N-1
@@ -47,10 +50,17 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
 
         # shift orthogonality center to right
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        X[i] = permute(U, (1, 2), (3, 4));
-        X[i+1]  = permute(S * V, (1, 2), (3, 4));
+        ϵHTrunc += ϵ;
 
-        if i < N - 2
+        if i == N-1 && N%2==0 # OC on the left for the last bond tensor of chain of even length 
+            X[i] = permute(U * S, (1, 2), (3, 4));
+            X[i+1] = permute(V, (1, 2), (3, 4));
+        else
+            X[i] = permute(U, (1, 2), (3, 4));
+            X[i+1]  = permute(S * V, (1, 2), (3, 4));
+        end
+
+        if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
             Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
             X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
             X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
@@ -65,6 +75,8 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
 
         # shift orthogonality center to left
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+        ϵHTrunc += ϵ;
+
         X[i+1] = permute(V, (1, 2), (3, 4));
         X[i] = permute(U * S, (1, 2), (3, 4));
 
@@ -77,6 +89,7 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     for i = 1 : N
         @tensor Bx[-1 -2 -3; -4 -5] := krausOp[1, -2, -4] * X[i][-1, -3, 1, -5];
         U, S, V, ϵ = tsvd(Bx, (2, 3), (1, 4, 5), trunc = truncdim(krausDim) & truncerr(truncErr), alg = TensorKit.SVD());
+        ϵDTrunc += ϵ;
         X[i] = permute(S * V, (2, 1), (3, 4));
         
         # shift orthogonality center to right
@@ -87,7 +100,7 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
         end
     end
     
-    # OC at the end (for chain of even length)
+    # OC at the end for chain of even length => move OC to left
     if N%2 == 0
         L, Q = rightorth(X[N], (1, ), (2, 3, 4), alg = LQpos());
         X[N - 1] = permute(permute(X[N-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
@@ -101,6 +114,8 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
         
         # shift orthogonality center to left
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+        ϵHTrunc += ϵ;
+
         X[i+1] = permute(V, (1, 2), (3, 4));
         X[i] = permute(U * S, (1, 2), (3, 4));
 
@@ -115,10 +130,12 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
 
         # shift orthogonality center to right
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+        ϵHTrunc += ϵ;
+
         X[i] = permute(U, (1, 2), (3, 4));
         X[i+1]  = permute(S * V, (1, 2), (3, 4));
 
-        if i < N - 2 
+        if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
             Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
             X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
             X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
@@ -126,7 +143,5 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     end
 
     X = orthogonalizeX(X, 1);
-    return X
+    return X, ϵHTrunc, ϵDTrunc
 end
-
-
