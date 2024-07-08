@@ -2,30 +2,30 @@ using LinearAlgebra
 using TensorKit
 
 
-function expHam(omega, tau)
-    sigmaX = 0.5 * [0 +1 ; +1 0];
-    numberOp = [0 0; 0 1];
-    ham = omega * (kron(sigmaX,numberOp) + kron(numberOp, sigmaX));
-
-    propagator = exp(-1im * tau * ham);
-    expHamOp = TensorMap(propagator, ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
-
-    return expHamOp
-end
-
-
 # function expHam(omega, tau)
 #     sigmaX = 0.5 * [0 +1 ; +1 0];
 #     numberOp = [0 0; 0 1];
-#     Id = [1 0; 0 1];
-#     ham = sigmaX * numberOp + numberOp * sigmaX; 
-#     ham = omega * (kron(ham, Id)  - kron(Id, ham));
+#     ham = omega * (kron(sigmaX,numberOp) + kron(numberOp, sigmaX));
 
 #     propagator = exp(-1im * tau * ham);
 #     expHamOp = TensorMap(propagator, ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
 
 #     return expHamOp
 # end
+
+
+function expHam(omega, tau)
+    sigmaX = 0.5 * [0 +1 ; +1 0];
+    numberOp = [0 0; 0 1];
+    Id = [1 0; 0 1];
+    ham = sigmaX * numberOp + numberOp * sigmaX; 
+    ham = omega * (kron(ham, Id)  - kron(Id, ham));
+
+    propagator = exp(-1im * tau * ham);
+    expHamOp = TensorMap(propagator, ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
+
+    return expHamOp
+end
 
 
 function expDiss(gamma, tau)
@@ -60,11 +60,9 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     # sweep L ---> R [odd]
     for i = 1 : 2 : N-1
         @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-        bondTensor /= norm(bondTensor);
 
         # shift orthogonality center to right
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
         ϵHTrunc += ϵ;
 
         if i == N-1 && N%2==0 # OC on the left for the last bond tensor of chain of even length 
@@ -87,11 +85,9 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     for i = reverse(2 : 2 : N-1)
 
         @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];        
-        bondTensor /= norm(bondTensor);
 
         # shift orthogonality center to left
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
         ϵHTrunc += ϵ;
 
         X[i+1] = permute(V, (1, 2), (3, 4));
@@ -105,11 +101,7 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     # dissipation
     for i = 1 : N
         @tensor Bx[-1 -2 -3; -4 -5] := krausOp[1, -2, -4] * X[i][-1, -3, 1, -5];
-        Bx /= norm(Bx);
-
         U, S, V, ϵ = tsvd(Bx, (2, 3), (1, 4, 5), trunc = truncdim(krausDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-
         ϵDTrunc += ϵ;
         X[i] = permute(S * V, (2, 1), (3, 4));
         
@@ -132,13 +124,9 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     for i = reverse(2 : 2 : N-1)
 
         @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-        bondTensor /= norm(bondTensor);
-
         
         # shift orthogonality center to left
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-
         ϵHTrunc += ϵ;
 
         X[i+1] = permute(V, (1, 2), (3, 4));
@@ -152,12 +140,9 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     # sweep L ---> R [odd]
     for i = 1 : 2 : N-1
         @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-        bondTensor /= norm(bondTensor);
 
         # shift orthogonality center to right
         U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-
         ϵHTrunc += ϵ;
 
         X[i] = permute(U, (1, 2), (3, 4));

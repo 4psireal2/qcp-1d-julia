@@ -55,6 +55,7 @@ for OMEGA in OMEGAS
     for i in ProgressBar(1 : nTimeSteps)
         # global  X_t
         X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, KRAUSDIM, truncErr);
+        @show computeNorm(X_t)
         ϵHTrunc_t[i], ϵDTrunc_t[i] = ϵHTrunc, ϵDTrunc;
         # println("At t=$(i*dt)")
         n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal(X_t, numberOp);

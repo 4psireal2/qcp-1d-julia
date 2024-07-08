@@ -1,5 +1,5 @@
 """
-Dynamical simulations of QCP for short chain N = 11
+For different definition of Hamiltonian dynamics
 """
 
 using Pkg
@@ -10,7 +10,7 @@ using Logging
 using Serialization
 
 include("../src/lptn.jl")
-include("../src/tebd.jl")
+include("../src/tebd_diff.jl")
 
 
 OUTPUT_PATH = "/scratch/nguyed99/qcp-1d-julia/results/";
@@ -71,7 +71,7 @@ function main(args)
     SLURM_ARRAY_JOB_ID = parsed_args["JOBID"]   
     GAMMA = 1.0;
 
-    FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)";
+    FILE_INFO = "diff_N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)";
     logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+");
     logger = SimpleLogger(logFile, Logging.Info);
     Base.global_logger(logger);
@@ -84,9 +84,13 @@ function main(args)
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
 
 
-    basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...);
-    XInit = createXBasis(N, basisTogether);
-    # XInit = createXBasis(N, [fill(basis0, 4); [Vector{Int64}(basis1)]; fill(basis0, 5)]);
+    # basisTogether = vcat(fill([basis0, basis1, basis1, basis1], N ÷ 4)...);
+    # basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], 10)...);
+    # XInit = createXBasis(N, [fill(basis0, 24); [Vector{Int64}(basis1)]; fill(basis0, 25)]);
+    XInit = createXBasis(N, [fill(basis0, 4); [Vector{Int64}(basis1)]; fill(basis0, 5)]);
+
+
+    # XInit = createXBasis(N, basisTogether);
 
 
     n_sites_t[1, :], n_t[1] = computeSiteExpVal(XInit, numberOp);

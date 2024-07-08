@@ -2,7 +2,7 @@
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "b9fd0662b01e8d1f6490888406941a4d043905e6"
+project_hash = "8fc83def316f6583acbb34476a453b4fbb1e2bcb"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "LinearAlgebra", "MacroTools", "Test"]
@@ -715,6 +715,12 @@ version = "0.1.5"
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
+
+[[deps.NumericIO]]
+deps = ["Printf"]
+git-tree-sha1 = "5e2bd9bee8b55b754ca61386df207abbfc266ef6"
+uuid = "6c575b1c-77cb-5640-a5dc-a54116c90507"
+version = "0.3.2"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
