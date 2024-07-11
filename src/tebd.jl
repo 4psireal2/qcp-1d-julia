@@ -48,37 +48,62 @@ function expDiss(gamma, tau)
 end
 
 
-function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
+function applyGate(Xa, Xb, oP, bondDim, truncErr)
+    """
+    Apply a 2-site gate on Xa and Xb
+    """
+    QR, R = leftorth(Xa, (1, 2,), (3, 4, ), alg = QRpos());
+    L, QL = rightorth(Xb, (1, 3, ), (2, 4), alg = LQpos());
+    @tensor bondTensor[-1; -2 -3 -4] := R[-1, 1, 2] * oP[1, 3, -2, -3] * L[2, 3, -4];
+    bondTensor /= norm(bondTensor);
+
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, ), (3, 4, ), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+    S /= norm(S); # normalise truncated bondTensor
+
+    @tensor U[-1, -2; -3, -4] := QR[-1, -2, 1] * U[1, -3, -4];
+    @tensor V[-1, -2; -3, -4] := V[-1, -3, 1] * QL[1, -2, -4];
+
+    return U, S, V, ϵ
+
+end
+
+
+
+function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6, canForm=true)
     """
     2nd order TEBD with dissipative layer for one time step
+
+    Returns:
+        ϵHTrunc: truncation error in bond dimension
+        ϵDTrunc: truncation error in Kraus dimension
+        
     """
 
-    ϵHTrunc = 0;
-    ϵDTrunc = 0;
+    ϵHTrunc = Vector{Float64}();
+    ϵDTrunc = Vector{Float64}();
     N = length(X);
 
     # sweep L ---> R [odd]
     for i = 1 : 2 : N-1
-        @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-        bondTensor /= norm(bondTensor);
+
+        U, S, V, ϵ = applyGate(X[i], X[i+1], uniOp, bondDim, truncErr);
+        push!(ϵHTrunc, ϵ);
 
         # shift orthogonality center to right
-        U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-        ϵHTrunc += ϵ;
-
         if i == N-1 && N%2==0 # OC on the left for the last bond tensor of chain of even length 
-            X[i] = permute(U * S, (1, 2), (3, 4));
+            X[i] = permute(permute(U, (1, 2, 3), (4, )) * S, (1, 2), (3, 4));
             X[i+1] = permute(V, (1, 2), (3, 4));
         else
             X[i] = permute(U, (1, 2), (3, 4));
-            X[i+1]  = permute(S * V, (1, 2), (3, 4));
+            X[i+1] = permute(S * permute(V, (1, ), (2, 3, 4)), (1, 2), (3, 4))
         end
 
-        if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
-            Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
-            X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
-            X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
+        if canForm
+            if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
+                Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
+                X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
+                X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
+            end
         end
     end
 
@@ -86,20 +111,18 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
     # sweep R ---> L [even]
     for i = reverse(2 : 2 : N-1)
 
-        @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];        
-        bondTensor /= norm(bondTensor);
+        U, S, V, ϵ = applyGate(X[i], X[i+1], uniOp, bondDim, truncErr);
+        push!(ϵHTrunc, ϵ);
 
         # shift orthogonality center to left
-        U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-        ϵHTrunc += ϵ;
-
         X[i+1] = permute(V, (1, 2), (3, 4));
-        X[i] = permute(U * S, (1, 2), (3, 4));
+        X[i] = permute(permute(U, (1, 2, 3), (4, )) * S, (1, 2), (3, 4));
 
-        L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
-        X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
-        X[i] = permute(Q, (1, 2), (3, 4));
+        if canForm
+            L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
+            X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
+            X[i] = permute(Q, (1, 2), (3, 4));
+        end
     end
 
     # dissipation
@@ -110,63 +133,59 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6)
         U, S, V, ϵ = tsvd(Bx, (2, 3), (1, 4, 5), trunc = truncdim(krausDim) & truncerr(truncErr), alg = TensorKit.SVD());
         S /= norm(S); # normalise truncated bondTensor
 
-        ϵDTrunc += ϵ;
+        push!(ϵDTrunc, ϵ);
         X[i] = permute(S * V, (2, 1), (3, 4));
         
         # shift orthogonality center to right
-        if i < N
-            Q, R = leftorth(X[i], (1, 2, 3), (4, ), alg = QRpos());
-            X[i] = permute(Q, (1, 2), (3, 4)) ;
-            X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4))
+        if canForm
+            if i < N
+                Q, R = leftorth(X[i], (1, 2, 3), (4, ), alg = QRpos());
+                X[i] = permute(Q, (1, 2), (3, 4)) ;
+                X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4))
+            end
         end
     end
     
     # OC at the end for chain of even length => move OC to left
-    if N%2 == 0
-        L, Q = rightorth(X[N], (1, ), (2, 3, 4), alg = LQpos());
-        X[N - 1] = permute(permute(X[N-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
-        X[N] = permute(Q, (1, 2), (3, 4));
+    if canForm
+        if N%2 == 0
+            L, Q = rightorth(X[N], (1, ), (2, 3, 4), alg = LQpos());
+            X[N - 1] = permute(permute(X[N-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
+            X[N] = permute(Q, (1, 2), (3, 4));
+        end
     end
     
     # sweep R ---> L [even]
     for i = reverse(2 : 2 : N-1)
 
-        @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-        bondTensor /= norm(bondTensor);
+        U, S, V, ϵ = applyGate(X[i], X[i+1], uniOp, bondDim, truncErr);
+        push!(ϵHTrunc, ϵ);
 
-        
         # shift orthogonality center to left
-        U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-
-        ϵHTrunc += ϵ;
-
         X[i+1] = permute(V, (1, 2), (3, 4));
-        X[i] = permute(U * S, (1, 2), (3, 4));
+        X[i] = permute(permute(U, (1, 2, 3), (4, )) * S, (1, 2), (3, 4));
 
-        L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
-        X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
-        X[i] = permute(Q, (1, 2), (3, 4));
+        if canForm
+            L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
+            X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
+            X[i] = permute(Q, (1, 2), (3, 4));
+        end
     end
 
     # sweep L ---> R [odd]
     for i = 1 : 2 : N-1
-        @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-        bondTensor /= norm(bondTensor);
-
-        # shift orthogonality center to right
-        U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
-        S /= norm(S); # normalise truncated bondTensor
-
-        ϵHTrunc += ϵ;
+        U, S, V, ϵ = applyGate(X[i], X[i+1], uniOp, bondDim, truncErr);
+        push!(ϵHTrunc, ϵ);
 
         X[i] = permute(U, (1, 2), (3, 4));
-        X[i+1]  = permute(S * V, (1, 2), (3, 4));
+        X[i+1] = permute(S * permute(V, (1, ), (2, 3, 4)), (1, 2), (3, 4))
 
-        if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
-            Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
-            X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
-            X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
+        if canForm
+            if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
+                Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
+                X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
+                X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
+            end
         end
     end
 

@@ -79,8 +79,8 @@ function main(args)
     @info "System and simulation info: N=$N, OMEGA=$OMEGA, GAMMA=$GAMMA, BONDDIM=$BONDDIM, KRAUSDIM=$KRAUSDIM with truncErr=$truncErr"
 
     n_t = zeros(nTimeSteps + 1);
-    ϵHTrunc_t = zeros(nTimeSteps);
-    ϵDTrunc_t = zeros(nTimeSteps);
+    ϵHTrunc_t = Vector{Float64}();
+    ϵDTrunc_t = Vector{Float64}();
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
 
 
@@ -100,7 +100,10 @@ function main(args)
         X_t = XInit;
         for i = 1 : nTimeSteps
             X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, KRAUSDIM, truncErr);
-            ϵHTrunc_t[i], ϵDTrunc_t[i] = ϵHTrunc, ϵDTrunc;
+            @info "Trace of density matrix: $(computeNorm(X_t))"
+
+            push!(ϵHTrunc_t, ϵHTrunc)
+            push!(ϵDTrunc_t, ϵDTrunc)
             n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal(X_t, numberOp);
         end
 

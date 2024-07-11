@@ -24,11 +24,13 @@ end
 
 function createXBasis(N::Int64, basis; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
     X = Vector{TensorMap}(undef, N);
-    X[1] = TensorMap(basis[1], ComplexSpace(1) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
-    for i = 2 : (N-1)
-        X[i] = TensorMap(basis[i], ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
-    end 
-    X[N] = TensorMap(basis[N], ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(1));
+    for i = 1 : N
+        tensorBase = zeros(ComplexF64, 1, krausDim, d, 1);
+        tensorBase[:, :, 1, 1] = reshape([basis[i][1]], 1, 1);
+        tensorBase[:, :, 2, 1] = reshape([basis[i][2]], 1, 1);
+        X[i] = TensorMap(tensorBase, ComplexSpace(1) ⊗ ComplexSpace(krausDim), ComplexSpace(d) ⊗ ComplexSpace(1));
+
+    end
 
     return X
 end

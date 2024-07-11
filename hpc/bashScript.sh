@@ -16,10 +16,10 @@
 #SBATCH --ntasks=1
 
 # number of CPUs per task
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=12
 
 # memory per CPU in MB (see also --mem)
-#SBATCH --mem-per-cpu=16384
+#SBATCH --mem-per-cpu=8192
 
 # file to which standard output will be written (%A --> jobID, %a --> arrayID)
 #SBATCH --output=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.out
@@ -28,10 +28,10 @@
 #SBATCH --error=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.err
 
 # runtime in HH:MM:SS format (DAYS-HH:MM:SS format)
-#SBATCH --time=7-00:00:00
+#SBATCH --time=5-00:00:00
 
 # job arrays
-#SBATCH --array=0-2
+#SBATCH --array=0-8
 
 # select partition
 #SBATCH --partition=main
@@ -52,13 +52,17 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 
 # simulation parameter
-N=20
+N=5
 OMEGAS=(2.0 6.0 10.0)
-OMEGA=${OMEGAS[$SLURM_ARRAY_TASK_ID]}
+OMEGA_INDEX=$((SLURM_ARRAY_TASK_ID % 3))
+OMEGA=${OMEGAS[OMEGA_INDEX]}
 # OMEGA=6.0
 
-BONDDIM=100
-KRAUSDIM=50
+BONDDIMS=(60 80 100)
+KRAUSDIMS=(30 40 50)
+BONDDIM_INDEX=$((SLURM_ARRAY_TASK_ID % 3))
+BONDDIM=${BONDDIMS[BONDDIM_INDEX]}
+KRAUSDIM=${KRAUSDIMS[BONDDIM_INDEX]}
 dt=0.1
 # nts=(160 200 240 280 320)
 # nt=${nts[$SLURM_ARRAY_TASK_ID]}
