@@ -100,7 +100,7 @@ end
 
 function computeNorm(X; leftCan=false)::Float64
     """
-    If MPO is left-canonical, contract LPTN only for first site
+    If MPO is left-canonical, contract LPTN only for first site.
     """
     if leftCan
         @tensor lptnNorm = X[1][1, 2, 3, 4] * conj(X[1][1, 2, 3, 4]);
@@ -153,7 +153,7 @@ function computeSiteExpVal(X, onSiteOp)
     """
     N = length(X);
 
-    lptnNorm = computeNorm(X);
+    lptnNorm = computeNorm(X, leftCan=true);
     expVals = zeros(Float64, N);
 
     for i = 1 : N

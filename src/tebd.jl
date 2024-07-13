@@ -73,7 +73,7 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=true)
     2nd order TEBD with dissipative layer for one time step
 
     Returns:
-        X_t: left-canonical MPO
+        X_t: orthonormalized left-canonical MPO
         ϵHTrunc: truncation errors in bond dimension
         ϵDTrunc: truncation errors in Kraus dimension
     """
