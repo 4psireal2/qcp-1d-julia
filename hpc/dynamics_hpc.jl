@@ -79,8 +79,9 @@ function main(args)
     @info "System and simulation info: N=$N, OMEGA=$OMEGA, GAMMA=$GAMMA, BONDDIM=$BONDDIM, KRAUSDIM=$KRAUSDIM with truncErr=$truncErr"
 
     n_t = zeros(nTimeSteps + 1);
-    ϵHTrunc_t = Vector{Float64}();
-    ϵDTrunc_t = Vector{Float64}();
+    ϵHTrunc_t = Vector{Float64}[];
+    ϵDTrunc_t = Vector{Float64}[];
+    entSpec_t = Vector{Float64}[];
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
 
 
@@ -99,12 +100,14 @@ function main(args)
         dissDyn = expDiss(GAMMA, dt);
         X_t = XInit;
         for i = 1 : nTimeSteps
-            X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, KRAUSDIM, truncErr);
-            @info "Trace of density matrix: $(computeNorm(X_t))"
+            X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
+                                         KRAUSDIM, truncErr=truncErr, canForm=true);
 
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
             n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal(X_t, numberOp);
+
+            push!(entSpec_t, computeEntSpec(X_t))
         end
 
     end
@@ -128,6 +131,9 @@ function main(args)
         serialize(file, ϵDTrunc_t)
     end
 
+    open(OUTPUT_PATH * FILE_INFO * "_ent_spec_t.dat", "w") do file
+        serialize(file, entSpec_t)
+    end
 
     close(logFile)
 end

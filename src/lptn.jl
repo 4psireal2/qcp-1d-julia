@@ -60,7 +60,7 @@ function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})
 end
 
 
-function orthogonalizeX(X, orthoCenter::Int = 1)::Vector{TensorMap}
+function orthogonalizeX(X; orthoCenter::Int = 1)::Vector{TensorMap}
     """
     Params
     X: MPO
@@ -89,8 +89,8 @@ function orthogonalizeX(X, orthoCenter::Int = 1)::Vector{TensorMap}
 end
 
 
-function orthonormalizeX(X)
-    orthoX = orthogonalizeX(X, 1);
+function orthonormalizeX(X; orthoCenter=1)
+    orthoX = orthogonalizeX(X, orthoCenter=orthoCenter);
     normX = real(tr(orthoX[1]' * orthoX[1]));
     orthoX[1] /= sqrt(normX);
 
@@ -98,28 +98,35 @@ function orthonormalizeX(X)
 end
 
 
-function computeNorm(X)::Float64
-    N = length(X);
+function computeNorm(X; leftCan=false)::Float64
+    """
+    If MPO is left-canonical, contract LPTN only for first site
+    """
+    if leftCan
+        @tensor lptnNorm = X[1][1, 2, 3, 4] * conj(X[1][1, 2, 3, 4]);
+    else
+        N = length(X);
 
-    boundaryL = TensorMap(ones, ℂ^1, ℂ^1);
-    boundaryR = TensorMap(ones, ℂ^1, ℂ^1);
+        boundaryL = TensorMap(ones, ℂ^1, ℂ^1);
+        boundaryR = TensorMap(ones, ℂ^1, ℂ^1);
 
-    for i = 1 : N
-        @tensor boundaryL[-1; -2] := boundaryL[1, 2] * conj(X[i][1, 3, 4, -1]) * X[i][2, 3, 4, -2];
+        for i = 1 : N
+            @tensor boundaryL[-1; -2] := boundaryL[1, 2] * conj(X[i][1, 3, 4, -1]) * X[i][2, 3, 4, -2];
+        end
+
+        lptnNorm = tr(boundaryL * boundaryR)
     end
-
-    lptnNorm = tr(boundaryL * boundaryR)
-    
+        
     if abs(imag(lptnNorm)) < 1e-12
         return real(lptnNorm)
     else
         ErrorException("Complex norm is found.")
     end
+
 end
 
 
 function computePurity(X)::Float64
-    # XXX: a more efficient way ?
     N = length(X);
 
     boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1);
@@ -140,6 +147,38 @@ end
 
 
 function computeSiteExpVal(X, onSiteOp)
+    """
+    Args:
+        X : left-canonical MPO
+    """
+    N = length(X);
+
+    lptnNorm = computeNorm(X);
+    expVals = zeros(Float64, N);
+
+    for i = 1 : N
+
+        @tensor expVal = onSiteOp[1, 2] * X[i][3, 4, 1, 5] * conj(X[i][3, 4, 2, 5]);
+
+        if i < N
+            QR, R = leftorth(X[i], (1, 2, 3,), (4, ), alg = QRpos());
+            X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4));
+        end
+
+        if abs(imag(expVal)) < 1e-12
+            expVals[i] = real(expVal) / lptnNorm;
+        else
+            ErrorException("Complex expectation value is found.")
+        end
+    end
+    return expVals, sum(expVals)/N
+end
+
+
+function computeSiteExpVal_test(X, onSiteOp)
+    """
+    The O(N^2) way
+    """
     N = length(X);
 
     lptnNorm = computeNorm(X);
@@ -221,14 +260,16 @@ end
 
 function computeEntSpec(X)
     """
-    Compute entanglement spectrum for the bipartion of LPTN chain
+    Compute entanglement spectrum for the bipartion of LPTN chain at half length
     """
 
     N = length(X);
     indL, indR = N÷2, N÷2 + 1;
-    @tensor bondTensor[-1 -4 -7 -8; -2 -3 -5 -6] := X[indL][-1, 1, -2, 2] * conj(X[indL][-3, 1, -4, 3]) * X[indR][2, 4, -5, -6] * conj(X[indR][3, 4, -7, -8]);
+    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] := X[indL][-1, 1, -2, 2] * conj(X[indL][-3, 1, -4, 3]) * X[indR][2, 4, -5, -6] * conj(X[indR][3, 4, -7, -8]);
+    bondTensor /= norm(bondTensor);
     
-    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 5, 6), (3, 4, 7, 8), alg = TensorKit.SVD());
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8), alg = TensorKit.SVD());
+    S = reshape(convert(Array, S), (dim(space(S)[1]), dim(space(S)[1])));
     
-    return S
+    return diag(S)
 end
