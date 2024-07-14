@@ -175,13 +175,13 @@ function computeSiteExpVal(X, onSiteOp)
 end
 
 
-function computeSiteExpVal_test(X, onSiteOp)
+function computeSiteExpVal_long(X, onSiteOp; leftCan=false)
     """
     The O(N^2) way
     """
     N = length(X);
 
-    lptnNorm = computeNorm(X);
+    lptnNorm = computeNorm(X, leftCan=leftCan);
     expVals = zeros(Float64, N);
 
     for i = 1 : N
@@ -273,3 +273,17 @@ function computeEntSpec(X)
     
     return diag(S)
 end
+
+
+function computevNentropy(S)
+    """
+    Compute von Neumann entropy given the singular value spectrum
+    """
+    return sum((S.^2).*(log10.(S)))
+
+
+function compute2RenyiEntropy(X)
+    """
+    Compute 2-Renyi entropy
+    """
+    return -log10(computePurity(X))
