@@ -79,12 +79,10 @@ function main(args)
     @info "System and simulation info: N=$N, OMEGA=$OMEGA, GAMMA=$GAMMA, BONDDIM=$BONDDIM, KRAUSDIM=$KRAUSDIM with truncErr=$truncErr"
 
     n_t = zeros(nTimeSteps + 1);
-    n_t_short = zeros(nTimeSteps + 1);
     ϵHTrunc_t = Vector{Float64}[];
     ϵDTrunc_t = Vector{Float64}[];
     entSpec_t = Vector{Float64}[];
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
-    n_sites_t_short = zeros(nTimeSteps + 1);
 
 
     basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...);
@@ -102,13 +100,12 @@ function main(args)
         dissDyn = expDiss(GAMMA, dt);
         X_t = XInit;
         for i = 1 : nTimeSteps
-            X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
-                                         KRAUSDIM, truncErr=truncErr, canForm=true);
+            X_t, ϵHTrunc, ϵDTrunc = TEBD_test(X_t, hamDyn, dissDyn, BONDDIM, 
+                                    KRAUSDIM, truncErr=truncErr, canForm=true);
 
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
-            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal_long(X_t, numberOp, leftCan=true);
-            n_sites_t_short[i+1, :], n_sites_t_short[i+1] = computeSiteExpVal(X_t, numberOp);
+            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal(X_t, numberOp);
 
             push!(entSpec_t, computeEntSpec(X_t))
         end
@@ -124,14 +121,6 @@ function main(args)
 
     open(OUTPUT_PATH * FILE_INFO * "_n_t.dat", "w") do file
         serialize(file, n_t)
-    end
-
-    open(OUTPUT_PATH * FILE_INFO * "_n_sites_t_short.dat", "w") do file
-        serialize(file, n_sites_t_short)
-    end
-
-    open(OUTPUT_PATH * FILE_INFO * "_n_t_short.dat", "w") do file
-        serialize(file, n_t_short)
     end
 
     open(OUTPUT_PATH * FILE_INFO * "_H_trunc_err_t.dat", "w") do file

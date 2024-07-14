@@ -14,20 +14,6 @@ function expHam(omega, tau)
 end
 
 
-# function expHam(omega, tau)
-#     sigmaX = 0.5 * [0 +1 ; +1 0];
-#     numberOp = [0 0; 0 1];
-#     Id = [1 0; 0 1];
-#     ham = sigmaX * numberOp + numberOp * sigmaX; 
-#     ham = omega * (kron(ham, Id)  - kron(Id, ham));
-
-#     propagator = exp(-1im * tau * ham);
-#     expHamOp = TensorMap(propagator, ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
-
-#     return expHamOp
-# end
-
-
 function expDiss(gamma, tau)
     annihilationOp = [0 1; 0 0];
     numberOp = [0 0; 0 1];
@@ -195,7 +181,7 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=true)
 end
 
 
-function TEBD_test(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6, canForm=true)
+function TEBD_test(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=true)
     """
     without QR decomposition
     """
@@ -208,16 +194,7 @@ function TEBD_test(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6, canForm=
     for i = 1 : 2 : N-1
 
         ## QR/LQ decomposition test
-        ### without splitting the Kraus legs
-        @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];
-
-        ### with splitting ...
-        QR, R = leftorth(X[i], (1, 2,), (3, 4, ), alg = QRpos());
-        L, QL = rightorth(X[i+1], (1, 3, ), (2, 4), alg = LQpos());
-        @tensor bondTensor_test[-1; -2 -3 -4] := R[-1, 1, 2] * uniOp[1, 3, -2, -3] * L[2, 3, -4];
-        @tensor bondTensor_test[-1 -2 -3; -4 -5 -6] := QR[-1, -2, 1] * bondTensor_test[1, -4, -5, 2] * QL[2, -3, -6];
-
-        @show bondTensor == bondTensor_test # true 
+        @tensor bondTensor[-1, -2, -3; -4, -5, -6] := uniOp[1, 2, -4, -5] * X[i][-1, -2, 1, 3]  * X[i+1][3, -3, 2, -6];     
         bondTensor /= norm(bondTensor);
 
         # shift orthogonality center to right
@@ -258,13 +235,16 @@ function TEBD_test(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6, canForm=
         push!(ϵHTrunc, ϵ);
 
         # shift orthogonality center to left
-        X[i+1] = permute(V, (1, 2), (3, 4));
-        X[i] = permute(U * S, (1, 2), (3, 4));
-
         if canForm
+            X[i+1] = permute(V, (1, 2), (3, 4));
+            X[i] = permute(U * S, (1, 2), (3, 4));
+
             L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
             X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
             X[i] = permute(Q, (1, 2), (3, 4));
+        else
+            X[i] = permute(U * sqrt(S), (1, 2), (3, 4));
+            X[i+1] = permute(sqrt(S) * V, (1, 2), (3, 4));
         end
     end
 
@@ -310,13 +290,17 @@ function TEBD_test(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6, canForm=
 
 
         # shift orthogonality center to left
-        X[i+1] = permute(V, (1, 2), (3, 4));
-        X[i] = permute(U * S, (1, 2), (3, 4));
-
         if canForm
+
+            X[i+1] = permute(V, (1, 2), (3, 4));
+            X[i] = permute(U * S, (1, 2), (3, 4));
+
             L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
             X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
             X[i] = permute(Q, (1, 2), (3, 4));
+        else
+            X[i] = permute(U * sqrt(S), (1, 2), (3, 4));
+            X[i+1] = permute(sqrt(S) * V, (1, 2), (3, 4));
         end
     end
 
@@ -330,18 +314,21 @@ function TEBD_test(X, uniOp, krausOp, bondDim, krausDim, truncErr=1e-6, canForm=
         S /= norm(S); # normalise truncated bondTensor
         push!(ϵHTrunc, ϵ);
 
-        X[i] = permute(U, (1, 2), (3, 4));
-        X[i+1]  = permute(S * V, (1, 2), (3, 4));
-
         if canForm
+            X[i] = permute(U, (1, 2), (3, 4));
+            X[i+1]  = permute(S * V, (1, 2), (3, 4));
+
             if (i < N - 1 && N%2 == 1) || (i < N - 2 && N%2 == 0)
                 Q, R = leftorth(X[i+1], (1, 2, 3), (4, ), alg = QRpos());
                 X[i + 1] = permute(Q, (1, 2), (3, 4)) ;
                 X[i + 2] = permute(R * permute(X[i + 2], (1, ), (2, 3, 4)), (1, 2), (3, 4));
             end
+        else
+            X[i] = permute(U * sqrt(S), (1, 2), (3, 4));
+            X[i+1] = permute(sqrt(S) * V, (1, 2), (3, 4));
         end
     end
 
-    X = orthogonalizeX(X, orthoCenter=1);
+    X = orthonormalizeX(X, orthoCenter=1);
     return X, ϵHTrunc, ϵDTrunc
 end

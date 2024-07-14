@@ -175,7 +175,7 @@ function computeSiteExpVal(X, onSiteOp)
 end
 
 
-function computeSiteExpVal_long(X, onSiteOp; leftCan=false)
+function computeSiteExpVal_test(X, onSiteOp; leftCan=false)
     """
     The O(N^2) way
     """
@@ -280,6 +280,7 @@ function computevNentropy(S)
     Compute von Neumann entropy given the singular value spectrum
     """
     return sum((S.^2).*(log10.(S)))
+end
 
 
 function compute2RenyiEntropy(X)
@@ -287,3 +288,4 @@ function compute2RenyiEntropy(X)
     Compute 2-Renyi entropy
     """
     return -log10(computePurity(X))
+end
