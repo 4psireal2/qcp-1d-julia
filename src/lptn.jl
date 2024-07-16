@@ -139,7 +139,7 @@ function computePurity(X)::Float64
     purity = tr(boundaryL * boundaryR)
     
     if abs(imag(purity)) < 1e-12
-        return purity
+        return real(purity)
     else
         ErrorException("Complex purity is found.")
     end
@@ -162,6 +162,7 @@ function computeSiteExpVal(X, onSiteOp)
 
         if i < N
             QR, R = leftorth(X[i], (1, 2, 3,), (4, ), alg = QRpos());
+            R /= norm(R);
             X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4));
         end
 
@@ -212,22 +213,29 @@ end
 function densDensCorr(r::Int64, X, onSiteOp)
     """
     Compute  <O_{r} . O_{0}> - <O_{0}>^2 with trace
+
+    Args:
+        X : left-canonical MPO
     """
 
     N = length(X);
-    lptnNorm = computeNorm(X);
+    lptnNorm = computeNorm(X, leftCan=true);
 
     # compute <O_{r} . O_{0}>
     boundaryL = TensorMap(ones, ℂ^1, ℂ^1);
-    boundaryR = TensorMap(ones, ℂ^1, ℂ^1);
 
-    for j in 1 : N
+    for j in 1 : r
+
         if j==1 ||  j==r
             @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 5, -1]) * X[j][4, 1, 2, -2] * onSiteOp[2, 5];
         else
             @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 2, -1]) * X[j][4, 1, 2, -2];
         end
     end
+    
+    dimTensorR = dim(space(X[r])[4]);
+    boundaryR = TensorMap(ones, ℂ^dimTensorR, ℂ^dimTensorR);
+
 
     meanProduct = tr(boundaryL * boundaryR);
     if abs(imag(meanProduct)) < 1e-12
@@ -237,19 +245,9 @@ function densDensCorr(r::Int64, X, onSiteOp)
     end
 
     # compute <O_{0}>^2
-    boundaryL = TensorMap(ones, ℂ^1, ℂ^1);
-    boundaryR = TensorMap(ones, ℂ^1, ℂ^1);
-
-    for j in 1 : N
-        if j==0
-            @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 5, -1]) * X[j][4, 1, 2, -2] * onSiteOp[2, 5];
-        else
-            @tensor boundaryL[-1; -2] := boundaryL[3, 4] * conj(X[j][3, 1, 2, -1]) * X[j][4, 1, 2, -2];
-        end
-    end
-    productMean = tr(boundaryL * boundaryR);
-    if abs(imag(productMean)) < 1e-12
-        productMean = (real(productMean) / lptnNorm)^2;
+    @tensor expVal_0 = onSiteOp[1, 2] * X[1][3, 4, 1, 5] * conj(X[1][3, 4, 2, 5]);
+    if abs(imag(expVal_0)) < 1e-12
+        productMean = real(expVal_0)^2 / lptnNorm^2;
     else
         ErrorException("Complex expectation value is found.")
     end
@@ -265,7 +263,9 @@ function computeEntSpec(X)
 
     N = length(X);
     indL, indR = N÷2, N÷2 + 1;
-    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] := X[indL][-1, 1, -2, 2] * conj(X[indL][-3, 1, -4, 3]) * X[indR][2, 4, -5, -6] * conj(X[indR][3, 4, -7, -8]);
+    X_mid = orthogonalizeX(X, orthoCenter=indL);
+
+    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] := X_mid[indL][-1, 1, -2, 2] * conj(X_mid[indL][-3, 1, -4, 3]) * X_mid[indR][2, 4, -5, -6] * conj(X_mid[indR][3, 4, -7, -8]);
     bondTensor /= norm(bondTensor);
     
     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8), alg = TensorKit.SVD());
@@ -275,11 +275,11 @@ function computeEntSpec(X)
 end
 
 
-function computevNentropy(S)
+function computevNEntropy(S)
     """
     Compute von Neumann entropy given the singular value spectrum
     """
-    return sum((S.^2).*(log10.(S)))
+    return -sum((S.^2).*(log.(S.^2)))
 end
 
 
