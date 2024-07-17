@@ -60,41 +60,43 @@ function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})
 end
 
 
-function orthogonalizeX(X; orthoCenter::Int = 1)::Vector{TensorMap}
+function orthogonalizeX!(X; orthoCenter::Int = 1)::Vector{TensorMap}
     """
     Params
     X: MPO
     """
     N = length(X);
-    orthoX = deepcopy(X);
 
     # bring sites 1 to orthoCenter-1 into left-orthogonal form
     
     for i = 1 : 1 : (orthoCenter - 1)
-        Q, R = leftorth(orthoX[i], (1, 2, 3), (4, ), alg = QRpos());
+        Q, R = leftorth(X[i], (1, 2, 3), (4, ), alg = QRpos());
 
-        orthoX[i + 0] = permute(Q, (1, 2), (3, 4)) ;
-        orthoX[i + 1] = permute(R * permute(orthoX[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4))
+        X[i + 0] = permute(Q, (1, 2), (3, 4)) ;
+        X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4))
     end
 
     # bring sites orthCenter + 1 to N into right-orthogonal form
     for i = N : -1 : (orthoCenter + 1)
-        L, Q = rightorth(orthoX[i], (1, ), (2, 3, 4), alg = LQpos());
+        L, Q = rightorth(X[i], (1, ), (2, 3, 4), alg = LQpos());
 
-        orthoX[i - 1] = permute(permute(orthoX[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
-        orthoX[i - 0] = permute(Q, (1, 2), (3, 4));
+        X[i - 1] = permute(permute(X[i-1], (1, 2, 3), (4, )) * L, (1, 2), (3, 4));
+        X[i - 0] = permute(Q, (1, 2), (3, 4));
     end
 
-    return orthoX
+    return X
+
 end
 
 
-function orthonormalizeX(X; orthoCenter=1)
-    orthoX = orthogonalizeX(X, orthoCenter=orthoCenter);
-    normX = real(tr(orthoX[1]' * orthoX[1]));
-    orthoX[1] /= sqrt(normX);
+function orthonormalizeX!(X; orthoCenter=1)
 
-    return orthoX;
+    X = orthogonalizeX!(X, orthoCenter=orthoCenter);
+    normX = real(tr(X[1]' * X[1]));
+    X[1] /= sqrt(normX);
+
+    return X
+
 end
 
 
@@ -146,10 +148,12 @@ function computePurity(X)::Float64
 end
 
 
-function computeSiteExpVal(X, onSiteOp)
+function computeSiteExpVal!(X, onSiteOp)
     """
     Args:
         X : left-canonical MPO
+    
+    Note! X becomes right-canonical 
     """
     N = length(X);
 
@@ -162,7 +166,7 @@ function computeSiteExpVal(X, onSiteOp)
 
         if i < N
             QR, R = leftorth(X[i], (1, 2, 3,), (4, ), alg = QRpos());
-            R /= norm(R);
+            X[i] = permute(QR, (1, 2), (3, 4));
             X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4));
         end
 
@@ -256,16 +260,16 @@ function densDensCorr(r::Int64, X, onSiteOp)
 end
 
 
-function computeEntSpec(X)
+function computeEntSpec!(X)
     """
     Compute entanglement spectrum for the bipartion of LPTN chain at half length
     """
 
     N = length(X);
     indL, indR = N÷2, N÷2 + 1;
-    X_mid = orthogonalizeX(X, orthoCenter=indL);
+    X = orthonormalizeX!(X, orthoCenter=indL)
 
-    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] := X_mid[indL][-1, 1, -2, 2] * conj(X_mid[indL][-3, 1, -4, 3]) * X_mid[indR][2, 4, -5, -6] * conj(X_mid[indR][3, 4, -7, -8]);
+    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] := X[indL][-1, 1, -2, 2] * conj(X[indL][-3, 1, -4, 3]) * X[indR][2, 4, -5, -6] * conj(X[indR][3, 4, -7, -8]);
     bondTensor /= norm(bondTensor);
     
     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8), alg = TensorKit.SVD());

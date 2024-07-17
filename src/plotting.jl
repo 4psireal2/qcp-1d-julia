@@ -13,7 +13,7 @@ default(fontfamily="Palatino Roman")
 N = 10;
 nTimeSteps = 50;
 dt = 0.1; # 0.01 ≤ dt ≤ 0.1
-JOBID = 509847;
+JOBID = 539785;
 CHI = 25;
 KRAUSDIM = 15;
 
@@ -35,7 +35,7 @@ FILES = "N_$(N)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHI)_K_$(KRAUSDIM)_$(JOBID)";
 
 ## load files
 n_t_s = Array{Float64}(undef, length(OMEGAS), nTimeSteps + 1);
-# n_t_s_test = Array{Float64}(undef, length(OMEGAS), nTimeSteps + 1);
+n_t_s_test = Array{Float64}(undef, length(OMEGAS), nTimeSteps + 1);
 
 ϵHTrunc_t = Any[];
 ϵDTrunc_t = Any[];
@@ -44,8 +44,8 @@ ent_spec_t = Any[];
 for (i, OMEGA) in enumerate(OMEGAS)
     FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHI)_K_$(KRAUSDIM)_$(JOBID)";
 
-    # n_t_s[i, :] = deserialize(RESULT_PATH * FILE_INFO * "_n_t.dat");
-    # n_t_s_test[i, :] = deserialize(RESULT_PATH * FILE_INFO * "_n_t_test.dat");
+    n_t_s[i, :] = deserialize(RESULT_PATH * FILE_INFO * "_n_t.dat");
+    n_t_s_test[i, :] = deserialize(RESULT_PATH * FILE_INFO * "_n_t_test.dat");
 
     push!(ϵHTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_H_trunc_err_t.dat"))
     push!(ϵDTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_D_trunc_err_t.dat"))
@@ -54,37 +54,37 @@ for (i, OMEGA) in enumerate(OMEGAS)
 
 end
 
-## av(t)
-# aplot = plot();
-# ytick_positions = [1.0, 0.1, 0.01]
-# ytick_labels = ["1.0", "0.1", "0.01"]
+# av(t)
+aplot = plot();
+ytick_positions = [1.0, 0.1, 0.01]
+ytick_labels = ["1.0", "0.1", "0.01"]
 
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     plot!(dt*(1:nTimeSteps+1), n_t_s[i, :], label=L"\Omega = %$OMEGA") 
-# end
-# plot!(xlabel=L"\textrm{t}", ylabel=L"\textrm{n(t)}",
-#           title=L"\chi=%$CHI, \, K=%$KRAUSDIM, \, N=%$N",
-#           legend=:topright,
-#         #   xaxis=:log10, yaxis=:log10,
-#           yticks=(ytick_positions, ytick_labels),
-#           xformatter = (val) -> @sprintf("%.1f", val), yformatter = (val) -> @sprintf("%.2f", val))
-# savefig(aplot, OUTPUT_PATH * FILES * "_av_n(t).pdf")
+for (i, OMEGA) in enumerate(OMEGAS)
+    plot!(dt*(1:nTimeSteps+1), n_t_s[i, :], label=L"\Omega = %$OMEGA") 
+end
+plot!(xlabel=L"\textrm{t}", ylabel=L"\textrm{n(t)}",
+          title=L"\chi=%$CHI, \, K=%$KRAUSDIM, \, N=%$N",
+          legend=:topright,
+        #   xaxis=:log10, yaxis=:log10,
+        #   yticks=(ytick_positions, ytick_labels),
+          xformatter = (val) -> @sprintf("%.1f", val), yformatter = (val) -> @sprintf("%.2f", val))
+savefig(aplot, OUTPUT_PATH * FILES * "_av_n(t).pdf")
 
-# ## av(t) short
-# aplot = plot();
-# ytick_positions = [1.0, 0.1, 0.01]
-# ytick_labels = ["1.0", "0.1", "0.01"]
+# ## av(t) test
+aplot = plot();
+ytick_positions = [1.0, 0.1, 0.01]
+ytick_labels = ["1.0", "0.1", "0.01"]
 
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     plot!(dt*(1:nTimeSteps+1), n_t_s_test[i, :], label=L"\Omega = %$OMEGA") 
-# end
-# plot!(xlabel=L"\textrm{t}", ylabel=L"\textrm{n(t)}",
-#           title=L"\chi=%$CHI, \, K=%$KRAUSDIM, \, N=%$N",
-#           legend=:topright,
-#         #   xaxis=:log10, yaxis=:log10,
-#           yticks=(ytick_positions, ytick_labels),
-#           xformatter = (val) -> @sprintf("%.1f", val), yformatter = (val) -> @sprintf("%.2f", val))
-# savefig(aplot, OUTPUT_PATH * FILES * "_av_n(t)_test.pdf")
+for (i, OMEGA) in enumerate(OMEGAS)
+    plot!(dt*(1:nTimeSteps+1), n_t_s_test[i, :], label=L"\Omega = %$OMEGA") 
+end
+plot!(xlabel=L"\textrm{t}", ylabel=L"\textrm{n(t)}",
+          title=L"\chi=%$CHI, \, K=%$KRAUSDIM, \, N=%$N",
+          legend=:topright,
+        #   xaxis=:log10, yaxis=:log10,
+        #   yticks=(ytick_positions, ytick_labels),
+          xformatter = (val) -> @sprintf("%.1f", val), yformatter = (val) -> @sprintf("%.2f", val))
+savefig(aplot, OUTPUT_PATH * FILES * "_av_n(t)_test.pdf")
 
 # ## ϵHTrunc
 # aplot = plot();
@@ -165,17 +165,17 @@ end
 # savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_cumsum_sum_max_t.pdf")
 
 ## entanglement entropy
-aplot = plot();
-for (i, OMEGA) in enumerate(OMEGAS)
-    vNEnts = [computevNEntropy(x) for x in ent_spec_t[i]]
+# aplot = plot();
+# for (i, OMEGA) in enumerate(OMEGAS)
+#     vNEnts = [computevNEntropy(x) for x in ent_spec_t[i]]
 
-    plot!(aplot, dt*(1:nTimeSteps), vNEnts, label=L"\Omega = %$OMEGA")
-end
+#     plot!(aplot, dt*(1:nTimeSteps), vNEnts, label=L"\Omega = %$OMEGA")
+# end
 
-plot!(xlabel=L"\textrm{t}", ylabel=L"\textrm{Half-chain~von~Neumann~entropy}",
-    #   xaxis=:log10,
-      title=L"N=%$N")
-savefig(aplot, OUTPUT_PATH * FILES * "_vnEnt_t.pdf")
+# plot!(xlabel=L"\textrm{t}", ylabel=L"\textrm{Half-chain~von~Neumann~entropy}",
+#     #   xaxis=:log10,
+#       title=L"N=%$N")
+# savefig(aplot, OUTPUT_PATH * FILES * "_vnEnt_t.pdf")
 
 ### Density plot of the site-resolved average density 
 ### FIG S2

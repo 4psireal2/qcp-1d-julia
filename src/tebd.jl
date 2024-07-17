@@ -176,7 +176,7 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=true)
         end
     end
 
-    X = orthonormalizeX(X, orthoCenter=1);
+    X = orthonormalizeX!(X, orthoCenter=1);
     return X, ϵHTrunc, ϵDTrunc
 end
 
@@ -329,6 +329,6 @@ function TEBD_test(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=
         end
     end
 
-    X = orthonormalizeX(X, orthoCenter=1);
+    X = orthonormalizeX!(X, orthoCenter=1);
     return X, ϵHTrunc, ϵDTrunc
 end

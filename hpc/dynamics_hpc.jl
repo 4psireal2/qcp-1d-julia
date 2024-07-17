@@ -82,7 +82,12 @@ function main(args)
     ϵHTrunc_t = Vector{Float64}[];
     ϵDTrunc_t = Vector{Float64}[];
     entSpec_t = Vector{Float64}[];
+    # renyiEnt_t = Vector{Float64}();
+    # densDensCorrelation = Array{Float64}(undef, N-1);
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
+
+    n_t_test = zeros(nTimeSteps + 1);
+    n_sites_t_test = Array{Float64}(undef, nTimeSteps+1, N);
 
 
     basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...);
@@ -90,7 +95,9 @@ function main(args)
     # XInit = createXBasis(N, [fill(basis0, 4); [Vector{Int64}(basis1)]; fill(basis0, 5)]);
 
 
-    n_sites_t[1, :], n_t[1] = computeSiteExpVal(XInit, numberOp);
+    n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp);
+    n_sites_t_test[1, :], n_t_test[1] = computeSiteExpVal_test(XInit, numberOp, leftCan=true);
+
     @info "Initial average number of particles: $(n_t[1])"
 
     @info "Running second-order TEBD..."
@@ -100,14 +107,24 @@ function main(args)
         dissDyn = expDiss(GAMMA, dt);
         X_t = XInit;
         for i = 1 : nTimeSteps
-            X_t, ϵHTrunc, ϵDTrunc = TEBD_test(X_t, hamDyn, dissDyn, BONDDIM, 
+            X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
                                     KRAUSDIM, truncErr=truncErr, canForm=true);
+
+            n_sites_t_test[i+1, :], n_t_test[i+1] = computeSiteExpVal_test(X_t, numberOp, leftCan=true);
+            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp);
+
+            # if i == nTimeSteps
+            #     for j = 2 : N
+            #         densDensCorrelation[j-1] = densDensCorr(j,X_t, numberOp);
+            #     end
+            # end
 
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
-            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal(X_t, numberOp);
+            push!(entSpec_t, computeEntSpec!(X_t))
+            # push!(renyiEnt_t, compute2RenyiEntropy(X_t))
 
-            push!(entSpec_t, computeEntSpec(X_t))
+            X_t = orthonormalizeX!(X_t, orthoCenter=1);
         end
 
     end
@@ -123,6 +140,14 @@ function main(args)
         serialize(file, n_t)
     end
 
+    open(OUTPUT_PATH * FILE_INFO * "_n_sites_t_test.dat", "w") do file
+        serialize(file, n_sites_t_test)
+    end
+
+    open(OUTPUT_PATH * FILE_INFO * "_n_t_test.dat", "w") do file
+        serialize(file, n_t_test)
+    end
+
     open(OUTPUT_PATH * FILE_INFO * "_H_trunc_err_t.dat", "w") do file
         serialize(file, ϵHTrunc_t)
     end
@@ -134,6 +159,14 @@ function main(args)
     open(OUTPUT_PATH * FILE_INFO * "_ent_spec_t.dat", "w") do file
         serialize(file, entSpec_t)
     end
+
+    # open(OUTPUT_PATH * FILE_INFO * "_renyiEnt_t.dat", "w") do file
+    #     serialize(file, renyiEnt_t)
+    # end
+
+    # open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file
+    #     serialize(file, densDensCorrelation)
+    # end
 
     close(logFile)
 end
