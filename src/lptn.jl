@@ -8,6 +8,20 @@ using TensorKit
 using MPSKit
 
 
+function createXRand(N::Int64; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
+
+    X = Vector{TensorMap}(undef, N);
+
+    X[1] = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
+    for i = 2 : (N-1)
+        X[i] = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(bondDim));
+    end 
+    X[N] = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),  ComplexSpace(d) ⊗ ComplexSpace(1));
+
+    return X
+end
+
+
 function createXOnes(N::Int64; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
 
     X = Vector{TensorMap}(undef, N);
@@ -20,7 +34,6 @@ function createXOnes(N::Int64; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int6
 
     return X
 end
-
 
 function createXBasis(N::Int64, basis; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
     X = Vector{TensorMap}(undef, N);
