@@ -64,8 +64,8 @@ OMEGA_INDEX=$((SLURM_ARRAY_TASK_ID % 3))
 OMEGA=${OMEGAS[OMEGA_INDEX]}
 # OMEGA=6.0
 
-# BONDDIMS=(100 150 200)
-# KRAUSDIMS=(50 75 100)
+# BONDDIMS=(100 200 400)
+# KRAUSDIMS=(50 100 200)
 BONDDIM=25
 KRAUSDIM=15
 # BONDDIM_INDEX=$((SLURM_ARRAY_TASK_ID % 3))
@@ -79,14 +79,16 @@ nt=50
 # paths and file names
 timestamp=$(date +'%Y-%m-%d-%H-%M-%S')
 ENV_PATH="/scratch/nguyed99/qcp-1d-julia/"
+LOG_PATH="/scratch/nguyed99/qcp-1d-julia/logging"
 
 
 # store job info in output file, if you want...
 scontrol show job $SLURM_JOBID
 echo "slurm task ID = $SLURM_ARRAY_TASK_ID"
 echo $N $OMEGA $BONDDIM $KRAUSDIM $dt $nt
+cat dynamics_hpc.jl
+cat "${ENV_PATH}src/lptn.jl" "${ENV_PATH}src/tebd.jl" > "$LOG_PATH/${SLURM_ARRAY_JOB_ID}.func"
 
 # launch Julia script
-ENV_PATH="/scratch/nguyed99/qcp-1d-julia/"
 export JULIA_PROJECT=$ENV_PATH
 julia dynamics_hpc.jl --N $N --OMEGA $OMEGA --BONDDIM $BONDDIM --KRAUSDIM $KRAUSDIM --dt $dt --nt $nt --JOBID $SLURM_ARRAY_JOB_ID

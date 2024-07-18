@@ -227,6 +227,37 @@ function computeSiteExpVal_test(X, onSiteOp; leftCan=false)
 end
 
 
+function computeSiteExpVal_test_1!(X, onSiteOp)
+    """
+    Args:
+        X : left-canonical MPO
+    
+    Note! X becomes right-canonical 
+    """
+    N = length(X);
+
+    lptnNorm = computeNorm(X, leftCan=true);
+    expVals = zeros(Float64, N);
+
+    for i = 1 : N
+
+        @tensor expVal = onSiteOp[1, 2] * X[i][3, 4, 1, 5] * conj(X[i][3, 4, 2, 5]);
+
+        if i < N
+            QR, R = leftorth(X[i], (1, 2, 3,), (4, ), alg = QRpos());
+            X[i + 1] = permute(R * permute(X[i + 1], (1, ), (2, 3, 4)), (1, 2), (3, 4));
+        end
+
+        if abs(imag(expVal)) < 1e-12
+            expVals[i] = real(expVal) / lptnNorm;
+        else
+            ErrorException("Complex expectation value is found.")
+        end
+    end
+    return expVals, sum(expVals)/N
+end
+
+
 function densDensCorr(r::Int64, X, onSiteOp)
     """
     Compute  <O_{r} . O_{0}> - <O_{0}>^2 with trace
@@ -280,7 +311,7 @@ function computeEntSpec!(X)
 
     N = length(X);
     indL, indR = N÷2, N÷2 + 1;
-    X = orthonormalizeX!(X, orthoCenter=indL)
+    X = orthonormalizeX!(X, orthoCenter=indL);
 
     @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] := X[indL][-1, 1, -2, 2] * conj(X[indL][-3, 1, -4, 3]) * X[indR][2, 4, -5, -6] * conj(X[indR][3, 4, -7, -8]);
     bondTensor /= norm(bondTensor);

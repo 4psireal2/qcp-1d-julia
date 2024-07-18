@@ -73,6 +73,7 @@ function main(args)
 
     FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)";
     logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+");
+
     logger = SimpleLogger(logFile, Logging.Info);
     Base.global_logger(logger);
 
@@ -86,8 +87,8 @@ function main(args)
     # densDensCorrelation = Array{Float64}(undef, N-1);
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
 
-    n_t_test = zeros(nTimeSteps + 1);
-    n_sites_t_test = Array{Float64}(undef, nTimeSteps+1, N);
+    # n_t_test = zeros(nTimeSteps + 1);
+    # n_sites_t_test = Array{Float64}(undef, nTimeSteps+1, N);
 
 
     basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...);
@@ -96,7 +97,7 @@ function main(args)
 
 
     n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp);
-    n_sites_t_test[1, :], n_t_test[1] = computeSiteExpVal_test(XInit, numberOp, leftCan=true);
+    # n_sites_t_test[1, :], n_t_test[1] = computeSiteExpVal_test(XInit, numberOp, leftCan=true);
 
     @info "Initial average number of particles: $(n_t[1])"
 
@@ -110,7 +111,7 @@ function main(args)
             X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
                                     KRAUSDIM, truncErr=truncErr, canForm=true);
 
-            n_sites_t_test[i+1, :], n_t_test[i+1] = computeSiteExpVal_test(X_t, numberOp, leftCan=true);
+            # n_sites_t_test[i+1, :], n_t_test[i+1] = computeSiteExpVal_test(X_t, numberOp, leftCan=true);
             n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp);
 
             # if i == nTimeSteps
@@ -124,10 +125,11 @@ function main(args)
             push!(entSpec_t, computeEntSpec!(X_t))
             # push!(renyiEnt_t, compute2RenyiEntropy(X_t))
 
-            X_t = orthonormalizeX!(X_t, orthoCenter=1);
+            # X_t = orthonormalizeX!(X_t, orthoCenter=1);
         end
 
     end
+
     @info "Elapsed time for TEBD: $elapsed_time seconds"
     @info "Saving data..."
 
@@ -140,13 +142,13 @@ function main(args)
         serialize(file, n_t)
     end
 
-    open(OUTPUT_PATH * FILE_INFO * "_n_sites_t_test.dat", "w") do file
-        serialize(file, n_sites_t_test)
-    end
+    # open(OUTPUT_PATH * FILE_INFO * "_n_sites_t_test.dat", "w") do file
+    #     serialize(file, n_sites_t_test)
+    # end
 
-    open(OUTPUT_PATH * FILE_INFO * "_n_t_test.dat", "w") do file
-        serialize(file, n_t_test)
-    end
+    # open(OUTPUT_PATH * FILE_INFO * "_n_t_test.dat", "w") do file
+    #     serialize(file, n_t_test)
+    # end
 
     open(OUTPUT_PATH * FILE_INFO * "_H_trunc_err_t.dat", "w") do file
         serialize(file, ϵHTrunc_t)
@@ -169,6 +171,7 @@ function main(args)
     # end
 
     close(logFile)
+
 end
 
 
