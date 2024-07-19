@@ -83,12 +83,10 @@ function main(args)
     ϵHTrunc_t = Vector{Float64}[];
     ϵDTrunc_t = Vector{Float64}[];
     entSpec_t = Vector{Float64}[];
-    # renyiEnt_t = Vector{Float64}();
-    # densDensCorrelation = Array{Float64}(undef, N-1);
+    renyiEnt_t = Vector{Float64}();
+    densDensCorrelation = Array{Float64}(undef, N-1);
     n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
 
-    # n_t_test = zeros(nTimeSteps + 1);
-    # n_sites_t_test = Array{Float64}(undef, nTimeSteps+1, N);
 
 
     basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...);
@@ -97,7 +95,7 @@ function main(args)
 
 
     n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp);
-    # n_sites_t_test[1, :], n_t_test[1] = computeSiteExpVal_test(XInit, numberOp, leftCan=true);
+    XInit = orthonormalizeX!(XInit, orthoCenter=1);
 
     @info "Initial average number of particles: $(n_t[1])"
 
@@ -111,21 +109,21 @@ function main(args)
             X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
                                     KRAUSDIM, truncErr=truncErr, canForm=true);
 
-            # n_sites_t_test[i+1, :], n_t_test[i+1] = computeSiteExpVal_test(X_t, numberOp, leftCan=true);
-            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp);
 
-            # if i == nTimeSteps
-            #     for j = 2 : N
-            #         densDensCorrelation[j-1] = densDensCorr(j,X_t, numberOp);
-            #     end
-            # end
+            if i == nTimeSteps
+                for j = 2 : N
+                    densDensCorrelation[j-1] = densDensCorr(j, X_t, numberOp);
+                end
+            end
+
+            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp); # right-canonical
 
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
-            push!(entSpec_t, computeEntSpec!(X_t))
-            # push!(renyiEnt_t, compute2RenyiEntropy(X_t))
+            push!(entSpec_t, computeEntSpec!(X_t)) # mid-canonical
+            push!(renyiEnt_t, compute2RenyiEntropy(X_t))
 
-            # X_t = orthonormalizeX!(X_t, orthoCenter=1);
+            X_t = orthonormalizeX!(X_t, orthoCenter=1);
         end
 
     end
@@ -142,14 +140,6 @@ function main(args)
         serialize(file, n_t)
     end
 
-    # open(OUTPUT_PATH * FILE_INFO * "_n_sites_t_test.dat", "w") do file
-    #     serialize(file, n_sites_t_test)
-    # end
-
-    # open(OUTPUT_PATH * FILE_INFO * "_n_t_test.dat", "w") do file
-    #     serialize(file, n_t_test)
-    # end
-
     open(OUTPUT_PATH * FILE_INFO * "_H_trunc_err_t.dat", "w") do file
         serialize(file, ϵHTrunc_t)
     end
@@ -162,16 +152,15 @@ function main(args)
         serialize(file, entSpec_t)
     end
 
-    # open(OUTPUT_PATH * FILE_INFO * "_renyiEnt_t.dat", "w") do file
-    #     serialize(file, renyiEnt_t)
-    # end
+    open(OUTPUT_PATH * FILE_INFO * "_renyiEnt_t.dat", "w") do file
+        serialize(file, renyiEnt_t)
+    end
 
-    # open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file
-    #     serialize(file, densDensCorrelation)
-    # end
+    open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file
+        serialize(file, densDensCorrelation)
+    end
 
     close(logFile)
-
 end
 
 
