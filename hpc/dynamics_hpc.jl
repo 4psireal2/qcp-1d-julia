@@ -73,7 +73,6 @@ function main(args)
 
     FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)";
     logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+");
-
     logger = SimpleLogger(logFile, Logging.Info);
     Base.global_logger(logger);
 
@@ -106,22 +105,36 @@ function main(args)
         dissDyn = expDiss(GAMMA, dt);
         X_t = XInit;
         for i = 1 : nTimeSteps
-            X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
-                                    KRAUSDIM, truncErr=truncErr, canForm=true);
-
+            @time allocated_tebd = @allocated X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
+                                    KRAUSDIM, truncErr=truncErr, canForm=true)
+            @info "TEBD done for $(i)-th time step. Allocated memory: $(allocated_tebd/2^30) GB"
+            flush(logFile)
 
             if i == nTimeSteps
-                for j = 2 : N
-                    densDensCorrelation[j-1] = densDensCorr(j, X_t, numberOp);
+                @time allocated_corr = @allocated begin
+                    for j = 2 : N
+                        densDensCorrelation[j-1] = densDensCorr(j, X_t, numberOp);
+                    end
                 end
+                @info "Density-Density Correlation calculated. Allocated memory: $(allocated_corr/2^30) GB"
             end
 
-            n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp); # right-canonical
+            @time allocated_sites = @allocated n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp) # right-canonical
+            @info "Site Expectation Value computed. Allocated memory: $(allocated_sites/2^30) GB"
 
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
-            push!(entSpec_t, computeEntSpec!(X_t)) # mid-canonical
-            push!(renyiEnt_t, compute2RenyiEntropy(X_t))
+
+            @time allocated_entspec = @allocated ent_spec = computeEntSpec!(X_t) # mid-canonical
+            push!(entSpec_t, ent_spec)
+            @info "Entanglement Spectrum computed. Allocated memory: $(allocated_entspec/2^30) GB"            
+
+            @time allocated_renyi = @allocated renyi_ent = compute2RenyiEntropy(X_t)
+            push!(renyiEnt_t, renyi_ent)
+            @info "2-Renyi Entropy computed. Allocated memory: $(allocated_renyi/2^30) GB"
+
+            @info "Computation of properties done for $(i)-th time step"
+            flush(logFile)
 
             X_t = orthonormalizeX!(X_t, orthoCenter=1);
         end

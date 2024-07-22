@@ -261,6 +261,7 @@ end
 function densDensCorr(r::Int64, X, onSiteOp)
     """
     Compute  <O_{r} . O_{0}> - <O_{0}>^2 with trace
+    Ref: [https://arxiv.org/pdf/1306.2164] - P.17
 
     Args:
         X : left-canonical MPO
