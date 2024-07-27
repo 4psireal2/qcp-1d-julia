@@ -324,6 +324,26 @@ function computeEntSpec!(X)
 end
 
 
+function computeEntSpec_cheap!(X)
+    """
+    Compute entanglement spectrum for the bipartion of X chain at half length
+    """
+
+    N = length(X);
+    indL, indR = N÷2, N÷2 + 1;
+    X = orthonormalizeX!(X, orthoCenter=indL);
+
+    @tensor bondTensor[-1 -2 -4; -3 -5 -6] := X[indL][-1, -2, -3, 1] * X[indR][1, -4, -5, -6];
+    bondTensor /= norm(bondTensor);
+    
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3), (4, 5, 6), alg = TensorKit.SVD());
+    println(space(S)[1])
+    S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]));
+    
+    return diag(S)
+end
+
+
 function computevNEntropy(S)
     """
     Compute von Neumann entropy given the singular value spectrum

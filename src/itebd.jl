@@ -2,126 +2,93 @@ using TensorKit
 using KrylovKit # Lanczos - real EVal, Oddrnoldi - complex Eval
 
 
-function contractEnvL(X, oddT, evenT, wOddEven, wEvenOdd)
-    @tensor X[-2; -1] := X[7, 1] * wEvenOdd[1, 2] * oddT[2, 3, 4] * wOddEven[4, 5] * evenT[5, 6, -1] * conj(wEvenOdd[7, 8]) * conj(oddT[8, 3, 9]) * conj(wOddEven[9, 10]) * conj(evenT[10, 6, -2]);
+function contractEnv(X, env)
+    """
+    Iterative contracting function to find dominant eigenvector := transfer operator
+    """
+    @tensor X[-1; -2] := env[-1, 2, -2, 1] * X[1, 2];
     return X
 end
 
 
-function contractEnvR(X, oddT, evenT, wOddEven, wEvenOdd)
-    @tensor X[-1; -2] := X[6, 10] * evenT[-1, 1, 2] * wEvenOdd[2, 3] * oddT[3, 4, 5] * wOddEven[5, 6] * conj(evenT[-2, 1, 7]) * conj(wEvenOdd[7, 8]) * conj(oddT[8, 4, 9]) * conj(wOddEven[9, 10]);
-    return X
+function findTransferOp(transferOp, env; tol=1e-12, maxiter=1000)
+    """
+    Contract an infinite 2-site unit cell to create a transfer operator
+
+    Params:
+    - transferOp: initial guess of the transfer operator, dim = bondDim x bondDim
+    - env: environment to be contracted into
+    """
+    _, transferOp = eigsolve(transferOp, 1, :LM, KrylovKit.Arnoldi(tol = tol, maxiter = maxiter)) do x contractEnv(x, env) end; 
+    transferOp = transferOp[1] / norm(transferOp[1]);  # extract dominant eigenvector
+
+    return transferOp
 end
 
 
-function leftContraction!(oddT, evenT, wOddEven, wEvenOdd, leftT_EO; niters=1000, tol=1e-12)
-    """
-    Contract an infinite 2-site unit cell from the left to create transfer operators
-    leftT_OE and leftT_EO using Lanczos method as eigensolver
-    """
+function findGauge(env; isConj::Bool)
+    ###XXX: remove negative eigenenvalues?
 
-    # create left transfer operator across even-odd link
-    _, leftT_EO = eigsolve(leftT_EO, 1, :LM, KrylovKit.Arnoldi(tol = tol, maxiter = niters)) do x contractEnvL(x, oddT, evenT, wOddEven, wEvenOdd) end
-    leftT_EO = leftT_EO[1]; # extract dominant eigenvector
-    leftT_EO /= norm(leftT_EO);
+    eVecs = (env + env') / 2;
+    eval, evec = eig(eVecs, (1, ), (2, ));
 
-    # create left transfer operator across odd-even link
-    @tensor leftT_OE[-2; -1] :=  leftT_EO[4, 1] * wEvenOdd[1, 2] * conj(wEvenOdd[4, 5]) * oddT[2, 3, -1] * conj(oddT[5, 3, -2]);
-    leftT_OE /= norm(leftT_OE);
-
-    return leftT_OE, leftT_EO
-end
-
-
-function rightContraction!(oddT, evenT, wOddEven, wEvenOdd, rightT_OE; niters=1000, tol=1e-12)
-    """
-    Contract an infinite 2-site unit cell from the right to create transfer operators
-    rightT_OE and rightT_EO
-    """
-
-    # create right transfer operator across odd-even link
-    _, rightT_OE = eigsolve(rightT_OE, 1, :LM, KrylovKit.Arnoldi(tol = tol, maxiter = niters)) do x contractEnvR(x, oddT, evenT, wOddEven, wEvenOdd) end
-    rightT_OE = rightT_OE[1]; # extract dominant eigenvector
-    rightT_OE /= norm(rightT_OE);
-
-    # create right transfer operator across odd-even link
-    @tensor rightT_EO[-1; -2] :=  rightT_OE[3, 5] * oddT[-1, 1, 2] * conj(oddT[-2, 1, 4]) * wOddEven[2, 3] * conj(wOddEven[4, 5]);
-    rightT_EO /= norm(rightT_EO);
-
-    return rightT_OE, rightT_EO
-end
-
-
-function leftContraction_test!(oddT, evenT, wOddEven, wEvenOdd, leftT_EO; niters=1000, tol=1e-12)
-    """
-    Contract an infinite 2-site unit cell from the left to create transfer operators
-    leftT_OE and leftT_EO using power method as eigensolver
-    """
-
-    # create left transfer operator across even-odd link
-    for i = 1 : niters
-        leftT_EO_new = contractEnvL(leftT_EO, oddT, evenT, wOddEven, wEvenOdd);
-        leftT_EO_new /= norm(leftT_EO_new);
-
-        if norm(leftT_EO - leftT_EO_new) <= tol
-            leftT_EO = leftT_EO_new;
-            break
-        else
-            leftT_EO = leftT_EO_new;
-        end
+    evalMat = reshape(convert(Array, eval), (dim(space(eval)[1]), dim(space(eval)[1])));
+    if sum(diag(real(evalMat))) < 0
+        eval = -eval; # eVecs is equivalent up to overall sign ;
+    end
+        
+    gaugeOp = evec * sqrt(eval);
+    if isConj
+        gaugeOp = gaugeOp';
     end
 
-    # create left transfer operator across odd-even link
-    @tensor leftT_OE[-2; -1] :=  leftT_EO[4, 1] * wEvenOdd[1, 2] * conj(wEvenOdd[4, 5]) * oddT[2, 3, -1] * conj(oddT[5, 3, -2]);
-    leftT_OE /= norm(leftT_OE);
-
-    return leftT_OE, leftT_EO
+    return gaugeOp
 end
 
 
-function rightContraction_test!(oddT, evenT, wOddEven, wEvenOdd, rightT_OE; niters=1000, tol=1e-12)
+function orthogonalizeiMPS!(bondTensor, weightMid, weightSide, transferOpL, transferOpR)
     """
-    Contract an infinite 2-site unit cell from the right to create transfer operators
-    rightT_OE and rightT_EO using power method as eigensolver
-    """
-
-    # create right transfer operator across odd-even link
-    for _ = 1 : niters
-        rightT_OE_new = contractEnvR(rightT_OE, oddT, evenT, wOddEven, wEvenOdd);
-        rightT_OE_new /= norm(rightT_OE_new);
-
-        if norm(rightT_OE - rightT_OE_new) <= tol
-            rightT_OE = rightT_OE_new;
-            break
-        else
-            rightT_OE = rightT_OE_new;
-        end
-    end
-
-    # create right transfer operator across odd-even link
-    @tensor rightT_EO[-1; -2] :=  rightT_OE[3, 5] * oddT[-1, 1, 2] * conj(oddT[-2, 1, 4]) * wOddEven[2, 3] * conj(wOddEven[4, 5]);
-    rightT_EO /= norm(rightT_EO);
-
-    return rightT_OE, rightT_EO
-end
-
-
-function orthogonalizeiMPS!(leftT, rightT, weight, envL, envR)
+    Return left and right tensor over a link such that
+    the new transfer operators are orthonormalized
     
-    # diagonalize left environment
-    evalL, evecL = eig(envL, (1, ), (2, ));
+    transferOpL_can = (weightSide * tensorL) *  (weightSide * tensorL)' [left-normalised]
+    transferOpR_can = (tensorR * weightSide) *  (tensorR * weightSide)' [right-normalised]
+    """
 
-    # diagonalize right environment
-    evalR, evecR = eig(envR, (1, ), (2, ));
+    gaugeL = findGauge(transferOpL, isConj=true); # X'
+    gaugeR = findGauge(transferOpR, isConj=false); # Y
 
-    # update weight
-    @tensor weight[-1; -2] := sqrt(evalL)[-1, 1] * evecL'[1, 2] * weight[2, 3] * evecR[3, 4] * sqrt(evalR)[4, -2];
-    weight /= norm(weight);
+    @tensor weightSide[-1; -2] := gaugeL[-1, 1] * weightSide[1, 2] * gaugeR[2, -2];
 
-    @tensor leftT[-1 -2; -3] := leftT[-1, -2, 1] * evecL[1, 2] * sqrt(evalL)[2, -3];
-    leftT /= norm(leftT);
+    # SVD new weight
+    U, S, V, _ = tsvd(weightMid, (1, ), (2, ), alg = TensorKit.SVD());
+    weightSide = S / norm(S);
+    
+    # orthogonalize coarse-grained bondTensor
+    @tensor bondTensor[-1 -2 -3; -4] := V[-1, 1] * gaugeR'[1, 2] * bondTensor[2, -2, -3, 3] *
+                                        gaugeL'[3, 4] * U[4, -4];
 
-    @tensor rightT[-1 -2; -3] := sqrt(evecR)[-1, 1] * evecR'[1, 2] * rightT[2, -2, -3];
+    # decompose bondTensor (Eq. 7 iTEBD.5)
+    @tensor bondTensor[-1 -2 -3; -4] := weightSide[-1, 1] * bondTensor[1, -2, -3, 2] * weightSide[2, -4];
+    U, S, V, _ = tsvd(bondTensor, (1, 2), (3, 4));
+    weightMid = S/norm(S);
 
-    return leftT, rightT, weight
+    @tensor tensorL[-1 -2; -3] := pinv(weightSide)[-1, 1] * U[1, -2, -3];
+    @tensor tensorR[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3];
+
+    return tensorL, tensorR, weightMid, weightSide
+end
+
+
+function applyGate(oddT, evenT, weight, oP, bondDim, truncErr)
+    @tensor bondTensor[-1; -2 -3 -4] := oddT[-1, 1, 2] * weight[2, 3] * evenT[3, 4, -4] * oP[-2, -3, 1, 4];
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, ), (3, 4, ), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+    
+    oddT  = permute(weight' * permute(U, (1, ), (2, 3)), (1, 2), (3, ));
+    evenT = V * weight';
+
+    weight = S;
+    weight /= norm(weight); # normalise truncated bondTensor
+
+    return oddT, evenT, weight
 end
