@@ -80,15 +80,86 @@ function orthogonalizeiMPS!(bondTensor, weightMid, weightSide, transferOpL, tran
 end
 
 
-function applyGate(oddT, evenT, weight, oP, bondDim, truncErr)
-    @tensor bondTensor[-1; -2 -3 -4] := oddT[-1, 1, 2] * weight[2, 3] * evenT[3, 4, -4] * oP[-2, -3, 1, 4];
+function applyGate!(leftT, rightT, weightMid, weightSide, op, bondDim, truncErr)
+    @tensor bondTensor[-1 -2 -3; -4] := weightSide[-1, 1] * leftT[1, -2, 2] * weightMid[2, 3] * 
+                                        rightT[3, -3, 4] * weightSide[4, -4];
+    
+    @tensor bondTensor[-1 -2 -3; -4] := op[-2, -3, 1, 2] * bondTensor[-1, 1, 2, -4];
+
+
     U, S, V, ϵ = tsvd(bondTensor, (1, 2, ), (3, 4, ), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
     
-    oddT  = permute(weight' * permute(U, (1, ), (2, 3)), (1, 2), (3, ));
-    evenT = V * weight';
+    @tensor leftT[-1 -2; -3] := pinv(weightSide)[-1, 1] * U[1, -2, -3];
+    @tensor rightT[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3];
 
-    weight = S;
-    weight /= norm(weight); # normalise truncated bondTensor
+    weightMid = S / norm(S);
 
-    return oddT, evenT, weight
+    # updated bondTensor
+    @tensor bondTensor[-1 -2 -3; -4] := U[-1, -2, 1] * S[1, 2] * V[2, -3, -4];
+
+    return bondTensor, leftT, rightT, weightMid
+end
+
+
+function computeBondEnergy(bondTensor, leftT, rightT, weightMid, weightSide, op)
+    
+    # compute left-bond energy
+    @tensor bondL[-1 -2 -3; -4] :=  weightSide[-1, 1] * 
+                                    leftT[1, 2, 3] * weightMid[3, 4] * rightT[4, 5, 6] * 
+                                    weightSide[6, -4] *
+                                    op[-2, -3, 2, 5];
+
+    @tensor bondL[-2; -1] :=    bondL[1, 3, 6, -1] * 
+                                conj(weightSide[1, 2]) * 
+                                conj(leftT[2, 3, 4]) * conj(weightMid[4, 5]) * conj(rightT[5, 6, 7]) *
+                                conj(weightSide[7, -2]);
+    
+    @tensor rightSide[-1 -2; -3] := leftT[-1, -2 ,1] * weightMid[1, -3];
+    @tensor energyL = bondL[4, 1] * rightSide[1, 2, 3] * conj(rightSide[4, 2, 3]);
+
+    # compute right-bond energy
+    @tensor bondR[-1 -2 -3; -4] :=  weightMid[-1, 1] * 
+                                    rightT[1, 2, 3] * weightSide[3, 4] * leftT[4, 5, 6] * 
+                                    weightMid[6, -4] *
+                                    op[-2, -3, 2, 5];
+
+    @tensor bondR[-1; -2] :=    bondR[-1, 1, 2, 3] * 
+                                conj(weightMid[-2, 4]) * 
+                                conj(rightT[4, 1, 5]) * conj(weightSide[5, 6]) * conj(leftT[6, 2, 7]) *
+                                conj(weightMid[7, 3]);
+    
+    @tensor leftSide[-1 -2; -3] := weightSide[-1, 1] * leftT[1, -2, -3];
+    @tensor energyR = bondR[3, 4] * leftSide[1, 2, 3] * conj(leftSide[1, 2, 4]);
+
+    @tensor iNorm = bondTensor[1, 2, 3, 4] * conj(bondTensor[1, 2, 3, 7]) * rightSide[4, 5, 6] * conj(rightSide[7, 5, 6]);
+
+
+    if abs(imag(energyL)) < 1e-12 && abs(imag(energyR)) < 1e-12 && abs(imag(iNorm)) < 1e-12
+        return (1/2) * (energyL + energyR) / iNorm
+    else
+        ErrorException("Oops! Complex energy or norm is found.")
+    end
+
+end
+
+
+function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, bondDim; truncErr=1e-6,)
+    """
+    2nd order TEBD for unitary evolution for one time step
+    """
+    
+    # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
+    bondTensor, Go, Ge,  Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+    energyOdd1 = computeBondEnergy(bondTensor, Go, Ge, Lo, Le, expHo);
+    
+    # even bond update -> bondTensor = Lo - Ge - Le - Go - Lo
+    bondTensor, Go, Ge,  Lo = applyGate!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
+    energyEven = computeBondEnergy(bondTensor, Ge, Go, Le, Lo, expHe);
+
+    # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
+    bondTensor, Go, Ge,  Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+    energyOdd2 = computeBondEnergy(bondTensor, Go, Ge, Lo, Le, expHo);
+    
+    return Go, Ge, Lo, Le, (1/3) * (energyOdd1 + energyEven + energyOdd2)
+        
 end
