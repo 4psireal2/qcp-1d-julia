@@ -59,14 +59,11 @@ function orthogonalizeiMPS!(bondTensor, weightMid, weightSide, transferOpL, tran
     gaugeR = findGauge(transferOpR, isConj=false); # Y
 
     @tensor weightSide[-1; -2] := gaugeL[-1, 1] * weightSide[1, 2] * gaugeR[2, -2];
-
-    # SVD new weight
-    U, S, V, _ = tsvd(weightMid, (1, ), (2, ), alg = TensorKit.SVD());
-    weightSide = S / norm(S);
+    weightSide /= norm(weightSide);
     
     # orthogonalize coarse-grained bondTensor
-    @tensor bondTensor[-1 -2 -3; -4] := V[-1, 1] * gaugeR'[1, 2] * bondTensor[2, -2, -3, 3] *
-                                        gaugeL'[3, 4] * U[4, -4];
+    @tensor bondTensor[-1 -2 -3; -4] := gaugeR'[-1, 2] * bondTensor[2, -2, -3, 3] *
+                                        gaugeL'[3, -4];
 
     # decompose bondTensor (Eq. 7 iTEBD.5)
     @tensor bondTensor[-1 -2 -3; -4] := weightSide[-1, 1] * bondTensor[1, -2, -3, 2] * weightSide[2, -4];
@@ -75,7 +72,7 @@ function orthogonalizeiMPS!(bondTensor, weightMid, weightSide, transferOpL, tran
 
     @tensor tensorL[-1 -2; -3] := pinv(weightSide)[-1, 1] * U[1, -2, -3];
     @tensor tensorR[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3];
-
+    
     return tensorL, tensorR, weightMid, weightSide
 end
 
@@ -83,15 +80,14 @@ end
 function applyGate!(leftT, rightT, weightMid, weightSide, op, bondDim, truncErr)
     @tensor bondTensor[-1 -2 -3; -4] := weightSide[-1, 1] * leftT[1, -2, 2] * weightMid[2, 3] * 
                                         rightT[3, -3, 4] * weightSide[4, -4];
-    
     @tensor bondTensor[-1 -2 -3; -4] := op[-2, -3, 1, 2] * bondTensor[-1, 1, 2, -4];
-
+    # bondTensor_mat = reshape(convert(Array, bondTensor), dim(space(bondTensor)[2]), dim(space(bondTensor)[2]));
+    # @show bondTensor_mat
 
     U, S, V, ϵ = tsvd(bondTensor, (1, 2, ), (3, 4, ), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
     
     @tensor leftT[-1 -2; -3] := pinv(weightSide)[-1, 1] * U[1, -2, -3];
     @tensor rightT[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3];
-
     weightMid = S / norm(S);
 
     # updated bondTensor
@@ -102,18 +98,17 @@ end
 
 
 function computeBondEnergy(bondTensor, leftT, rightT, weightMid, weightSide, op)
-    
+
     # compute left-bond energy
     @tensor bondL[-1 -2 -3; -4] :=  weightSide[-1, 1] * 
                                     leftT[1, 2, 3] * weightMid[3, 4] * rightT[4, 5, 6] * 
                                     weightSide[6, -4] *
                                     op[-2, -3, 2, 5];
-
     @tensor bondL[-2; -1] :=    bondL[1, 3, 6, -1] * 
                                 conj(weightSide[1, 2]) * 
                                 conj(leftT[2, 3, 4]) * conj(weightMid[4, 5]) * conj(rightT[5, 6, 7]) *
                                 conj(weightSide[7, -2]);
-    
+
     @tensor rightSide[-1 -2; -3] := leftT[-1, -2 ,1] * weightMid[1, -3];
     @tensor energyL = bondL[4, 1] * rightSide[1, 2, 3] * conj(rightSide[4, 2, 3]);
 
@@ -143,23 +138,25 @@ function computeBondEnergy(bondTensor, leftT, rightT, weightMid, weightSide, op)
 end
 
 
-function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, bondDim; truncErr=1e-6,)
+function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, H, bondDim; truncErr=1e-6,)
     """
     2nd order TEBD for unitary evolution for one time step
     """
-    
-    # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
-    bondTensor, Go, Ge,  Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
-    energyOdd1 = computeBondEnergy(bondTensor, Go, Ge, Lo, Le, expHo);
-    
-    # even bond update -> bondTensor = Lo - Ge - Le - Go - Lo
-    bondTensor, Go, Ge,  Lo = applyGate!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
-    energyEven = computeBondEnergy(bondTensor, Ge, Go, Le, Lo, expHe);
 
     # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
-    bondTensor, Go, Ge,  Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
-    energyOdd2 = computeBondEnergy(bondTensor, Go, Ge, Lo, Le, expHo);
+    bondTensorOdd, Go, Ge, Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+    energyOdd1 = computeBondEnergy(bondTensorOdd, Go, Ge, Lo, Le, H);
+
+    # even bond update -> bondTensor = Lo - Ge - Le - Go - Lo
+    bondTensorEven, Ge, Go, Le = applyGate!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
+    energyEven = computeBondEnergy(bondTensorEven, Ge, Go, Le, Lo, H);
+
+    # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
+    # bondTensorOdd, Go, Ge,  Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+    # energyOdd2 = computeBondEnergy(bondTensorOdd, Go, Ge, Lo, Le, H);
     
-    return Go, Ge, Lo, Le, (1/3) * (energyOdd1 + energyEven + energyOdd2)
+    # return Go, Ge, Lo, Le, (1/3) * (energyOdd1 + energyEven + energyOdd2)
+    return Go, Ge, Lo, Le, (1/2) * (energyOdd1 + energyEven)
+
         
 end

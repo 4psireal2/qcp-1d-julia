@@ -8,17 +8,17 @@ d = 2;
 bondDim = 3;
 bondDimTrunc = 5;
 maxiter = 1000;
-tol=1e-12;
+tol=1e-10;
 
 
-# Go = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim));
-# Ge = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim));
-# Lo = TensorMap(randn, ComplexSpace(bondDim), ComplexSpace(bondDim));
-# Le = TensorMap(randn, ComplexSpace(bondDim), ComplexSpace(bondDim));
+Go = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim));
+Ge = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim));
+Lo = TensorMap(randn, ComplexSpace(bondDim), ComplexSpace(bondDim));
+Le = TensorMap(randn, ComplexSpace(bondDim), ComplexSpace(bondDim));
 
-# # Test: canonical form
-# ## across even-odd link
-# ### coarse grain Ge - Le - Go -> bondTensor
+# Test: canonical form
+## across even-odd link
+### coarse grain Ge - Le - Go -> bondTensor
 # @tensor bondTensor[-1 -2 -3; -4] := Ge[-1, -2, 1] * Le[1, 2] * Go[2, -3, -4];
 
 # @tensor rightEnv[-1 -4; -2 -3] := bondTensor[-1, 1, 2, 3] * conj(bondTensor[-2, 1, 2, 4]) * Lo[3, -3] * conj(Lo[4, -4]);
@@ -53,20 +53,28 @@ tol=1e-12;
 # @assert isapprox(rightEnv_matrix, I)
 
 
-# Test: iTEBD - Heisenberg model
-beta = 20; 
-N = 2000;
+# Test: iTEBD - TFI model
+# Ref: [https://tenpy.readthedocs.io/en/latest/toycodes/solution_3_dmrg.html#Infinite-DMRG]
+delta = 0.01; 
+nTimeSteps = 1000;
+J = 1.0;
+g = 0.5;
+unitCellSize = 2;
 
-Homat = diagm([0.25, -0.25, -0.25, 0.25]);
-Ho = TensorMap(Homat,  ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
-expHo = exp(-beta / N * Ho);
-Hemat = diagm([0.25, -0.25, -0.25, 0.25]);
-He = TensorMap(Hemat,  ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
-expHe = exp(-beta / N * Ho);
+Sx = TensorMap([0 1; 1 0],  ℂ^2,  ℂ^2);
+Sz = TensorMap([1 0; 0 -1],  ℂ^2,  ℂ^2);
+Id = TensorMap([1 0; 0 1],  ℂ^2,  ℂ^2);
+H = -J * (Sz ⊗ Sz) + g * (Sx ⊗ Id);
+
+expHo = exp(- delta * H);
+expHe = exp(- delta * H);
+
+H_mat = reshape(convert(Array, expHo), 4, 4);
+@show H_mat
 
 # initial state of even and odd sites - maximally entangled state?
 Go = TensorMap([1, 0], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin up
-Ge = TensorMap([0, 1], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin down
+Ge = TensorMap([1, 0], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin down
 Lo = TensorMap(ones, ℂ^1, ℂ^1);
 Le = TensorMap(ones, ℂ^1, ℂ^1);
 
@@ -85,7 +93,55 @@ Le = TensorMap(ones, ℂ^1, ℂ^1);
 @tensor rightEnv[-1; -2] := Go[-1, 1, 2] * Lo[2, 3] * conj(Lo[4, 3]) * conj(Go[-2, 1, 4]);
 @show rightEnv
 
+@show Go
+@show Ge
+
 Go, Ge, Lo, Le, energy = iTEBD!(Go, Ge, Lo, Le, expHo, expHe, bondDimTrunc);
+
+println("Check canonical form after one time step evolution")
+# left-isometry
+@tensor leftEnv[-2; -1] := Le[1, 2] * Go[2, 3, -1] * conj(Le[1, 4]) * conj(Go[4, 3, -2]);
+@show leftEnv
+
+@tensor leftEnv[-2; -1] := Lo[1, 2] * Ge[2, 3, -1] * conj(Lo[1, 4]) * conj(Ge[4, 3, -2]);
+@show leftEnv
+
+
+# right-isometry
+@tensor rightEnv[-1; -2] := Ge[-1, 1, 2] * Le[2, 3] * conj(Le[4, 3]) * conj(Ge[-2, 1, 4]);
+@show rightEnv
+
+@tensor rightEnv[-1; -2] := Go[-1, 1, 2] * Lo[2, 3] * conj(Lo[4, 3]) * conj(Go[-2, 1, 4]);
+@show rightEnv
+
+@show Go
+@show Ge
+
+# full time evolution
+let
+    Go = TensorMap([1, 0], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin up
+    Ge = TensorMap([1, 0], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin down
+    Lo = TensorMap(ones, ℂ^1, ℂ^1);
+    Le = TensorMap(ones, ℂ^1, ℂ^1);
+    for i = 1 : nTimeSteps
+        Go, Ge, Lo, Le, energy = iTEBD!(Go, Ge, Lo, Le, expHo, expHe, H, 10);
+
+        @tensor bondTensorO[-1 -2 -3; -4] := Le[-1, 1] * Go[1, -2, 2] * Lo[2, 3] * Ge[3, -3, 4] * Le[4, -4];
+        @tensor energyO = bondTensorO[1, 2, 3, 4] * H[5, 6, 2, 3] * conj(bondTensorO[1, 5, 6, 4]);
+
+        @tensor bondTensorE[-1 -2 -3; -4] := Lo[-1, 1] * Ge[1, -2, 2] * Le[2, 3] * Go[3, -3, 4] * Lo[4, -4];
+        @tensor energyE = bondTensorE[1, 2, 3, 4] * H[5, 6, 2, 3] * conj(bondTensorE[1, 5, 6, 4]);
+
+
+        if mod(i ,100) == 0
+            @show (energyO + energyE) / 2
+            @show energy
+        end
+    end
+end
+
+println("E_exact =  -1.063544409973372")
+
 
 nothing
 
