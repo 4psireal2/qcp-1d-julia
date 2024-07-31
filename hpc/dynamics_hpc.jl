@@ -13,10 +13,8 @@ include("../src/lptn.jl")
 include("../src/models.jl")
 include("../src/tebd.jl")
 
-
 OUTPUT_PATH = "/scratch/nguyed99/qcp-1d-julia/results/";
 LOG_PATH = "/scratch/nguyed99/qcp-1d-julia/logging/"
-
 
 # TN algorithm parameters
 truncErr = 1e-6;
@@ -27,9 +25,7 @@ basis1 = [0, 1];
 numberOp = [0 0; 0 1];
 numberOp = TensorMap(numberOp, ℂ^2, ℂ^2);
 
-
 function main(args)
-
     s = ArgParseSettings()
 
     @add_arg_table! s begin
@@ -63,51 +59,48 @@ function main(args)
     end
 
     parsed_args = parse_args(args, s)
-    N = parsed_args["N"];
-    OMEGA = parsed_args["OMEGA"];
-    BONDDIM = parsed_args["BONDDIM"];
-    KRAUSDIM = parsed_args["KRAUSDIM"];
-    dt = parsed_args["dt"];
-    nTimeSteps = parsed_args["nt"];
-    SLURM_ARRAY_JOB_ID = parsed_args["JOBID"]   
-    GAMMA = 1.0;
+    N = parsed_args["N"]
+    OMEGA = parsed_args["OMEGA"]
+    BONDDIM = parsed_args["BONDDIM"]
+    KRAUSDIM = parsed_args["KRAUSDIM"]
+    dt = parsed_args["dt"]
+    nTimeSteps = parsed_args["nt"]
+    SLURM_ARRAY_JOB_ID = parsed_args["JOBID"]
+    GAMMA = 1.0
 
-    FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)";
-    logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+");
-    logger = SimpleLogger(logFile, Logging.Info);
-    Base.global_logger(logger);
+    FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)"
+    logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+")
+    logger = SimpleLogger(logFile, Logging.Info)
+    Base.global_logger(logger)
 
     @info "System and simulation info: N=$N, OMEGA=$OMEGA, GAMMA=$GAMMA, BONDDIM=$BONDDIM, KRAUSDIM=$KRAUSDIM with truncErr=$truncErr"
 
-    n_t = zeros(nTimeSteps + 1);
-    ϵHTrunc_t = Vector{Float64}[];
-    ϵDTrunc_t = Vector{Float64}[];
-    entSpec_t = Vector{Float64}[];
+    n_t = zeros(nTimeSteps + 1)
+    ϵHTrunc_t = Vector{Float64}[]
+    ϵDTrunc_t = Vector{Float64}[]
+    entSpec_t = Vector{Float64}[]
     # renyiEnt_t = Vector{Float64}();
     # densDensCorrelation = Array{Float64}(undef, N-1);
-    n_sites_t = Array{Float64}(undef, nTimeSteps+1, N);
+    n_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
-
-
-    basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...);
-    XInit = createXBasis(N, basisTogether);
+    basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...)
+    XInit = createXBasis(N, basisTogether)
     # XInit = createXBasis(N, [fill(basis0, 4); [Vector{Int64}(basis1)]; fill(basis0, 5)]);
 
-
-    n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp);
-    XInit = orthonormalizeX!(XInit, orthoCenter=1);
+    n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp)
+    XInit = orthonormalizeX!(XInit; orthoCenter=1)
 
     @info "Initial average number of particles: $(n_t[1])"
 
     @info "Running second-order TEBD..."
     elapsed_time = @elapsed begin
-
-        hamDyn = expHam(OMEGA, dt/2);
-        dissDyn = expDiss(GAMMA, dt);
-        X_t = XInit;
-        for i = 1 : nTimeSteps
-            @time allocated_tebd = @allocated X_t, ϵHTrunc, ϵDTrunc = TEBD(X_t, hamDyn, dissDyn, BONDDIM, 
-                                    KRAUSDIM, truncErr=truncErr, canForm=true)
+        hamDyn = expHam(OMEGA, dt / 2)
+        dissDyn = expDiss(GAMMA, dt)
+        X_t = XInit
+        for i in 1:nTimeSteps
+            @time allocated_tebd = @allocated X_t, ϵHTrunc, ϵDTrunc = TEBD(
+                X_t, hamDyn, dissDyn, BONDDIM, KRAUSDIM; truncErr=truncErr, canForm=true
+            )
             @info "TEBD done for $(i)-th time step. Allocated memory: $(allocated_tebd/2^30) GB"
             flush(logFile)
 
@@ -120,7 +113,9 @@ function main(args)
             #     @info "Density-Density Correlation calculated. Allocated memory: $(allocated_corr/2^30) GB"
             # end
 
-            @time allocated_sites = @allocated n_sites_t[i+1, :], n_t[i+1] = computeSiteExpVal!(X_t, numberOp) # right-canonical
+            @time allocated_sites = @allocated n_sites_t[i + 1, :], n_t[i + 1] = computeSiteExpVal!(
+                X_t, numberOp
+            ) # right-canonical
             @info "Site Expectation Value computed. Allocated memory: $(allocated_sites/2^30) GB"
 
             push!(ϵHTrunc_t, ϵHTrunc)
@@ -128,7 +123,7 @@ function main(args)
 
             @time allocated_entspec = @allocated ent_spec = computeEntSpec_cheap!(X_t) # mid-canonical
             push!(entSpec_t, ent_spec)
-            @info "Entanglement Spectrum computed. Allocated memory: $(allocated_entspec/2^30) GB"            
+            @info "Entanglement Spectrum computed. Allocated memory: $(allocated_entspec/2^30) GB"
 
             # @time allocated_renyi = @allocated renyi_ent = compute2RenyiEntropy(X_t)
             # push!(renyiEnt_t, renyi_ent)
@@ -137,14 +132,12 @@ function main(args)
             @info "Computation of properties done for $(i)-th time step"
             flush(logFile)
 
-            X_t = orthonormalizeX!(X_t, orthoCenter=1);
+            X_t = orthonormalizeX!(X_t; orthoCenter=1)
         end
-
     end
 
     @info "Elapsed time for TEBD: $elapsed_time seconds"
     @info "Saving data..."
-
 
     open(OUTPUT_PATH * FILE_INFO * "_n_sites_t.dat", "w") do file
         serialize(file, n_sites_t)
@@ -174,8 +167,7 @@ function main(args)
     #     serialize(file, densDensCorrelation)
     # end
 
-    close(logFile)
+    return close(logFile)
 end
-
 
 main(ARGS)

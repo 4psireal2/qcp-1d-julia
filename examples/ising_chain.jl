@@ -10,27 +10,28 @@ using Statistics
 using TensorKit
 
 ### Model parameters
-GAMMA = 1.0; V = 5.0; OMEGA = 1.5; DELTA = 0.0;
+GAMMA = 1.0;
+V = 5.0;
+OMEGA = 1.5;
+DELTA = 0.0;
 
 ### System parameters
-N=10;
+N = 10;
 bondDim = 10;
-
 
 ### basis states
 basis0 = [1, 0];
 basis1 = [0, 1];
-basis = fill(basis0*basis0', N);
+basis = fill(basis0 * basis0', N);
 # initialMPS = initializeBasisMPS(N, basis);
 # initialMPS = orthonormalizeMPS(initialMPS);
-
 
 ### construct Lindbladian MPO 
 lindblad = constructLindbladMPO(GAMMA, V, OMEGA, DELTA, N);
 lindblad_dag = constructLindbladDagMPO(GAMMA, V, OMEGA, DELTA, N);
 lindbladHermitian = multiplyMPOMPO(lindblad, lindblad_dag);
 
-initialMPS = initializeRandomMPS(N, bonddim=bondDim);
+initialMPS = initializeRandomMPS(N; bonddim=bondDim);
 initialMPS = orthonormalizeMPS(initialMPS);
 
 ### DMRG2
@@ -58,21 +59,22 @@ initialMPS = orthonormalizeMPS(initialMPS);
 ### DMRG1
 println("Run DMRG1 for bond dimension = $bondDim")
 elapsed_time = @elapsed begin
-gsMPS, gsEnergy = DMRG1(initialMPS, lindbladHermitian, convTolE = 1e-6, maxIterations=1, verbosePrint = true);
+    gsMPS, gsEnergy = DMRG1(
+        initialMPS, lindbladHermitian; convTolE=1e-6, maxIterations=1, verbosePrint=true
+    )
 end
 println("Elapsed time for DMRG1: $elapsed_time seconds")
 @printf("Ground state energy per site E = %0.6f\n", gsEnergy / N)
 
-hermit_gsMPS = 1/2 * addMPSMPS(gsMPS, computeRhoDag(gsMPS))
+hermit_gsMPS = 1 / 2 * addMPSMPS(gsMPS, computeRhoDag(gsMPS))
 
 println("Compute magnetisation")
-sigmaZ = 0.5 * [+1 0 ; 0 -1];
-sigmaZ = TensorMap(sigmaZ,  ℂ^2 ,ℂ^2);
+sigmaZ = 0.5 * [+1 0; 0 -1];
+sigmaZ = TensorMap(sigmaZ, ℂ^2, ℂ^2);
 local_polarization_z_vMPO = computeSiteExpVal_vMPO(hermit_gsMPS, sigmaZ);
 local_polarization_z_mps = computeSiteExpVal_mps(hermit_gsMPS, sigmaZ);
 @show local_polarization_z_vMPO
-plot(range(1,10, length=10), local_polarization_z_mps)
-
+plot(range(1, 10; length=10), local_polarization_z_mps)
 
 ## local_polarization_z_mps = [-0.4910078429417828, -0.49580364217264344, -0.49581414869660134, -0.4958142146153981, 
 ## -0.495814348331521, -0.4958141751343449, -0.4958141844301206, -0.4958141723583373, -0.49580382311610816, -0.4910078120963935] # Δ=-4.0
@@ -89,7 +91,6 @@ plot(range(1,10, length=10), local_polarization_z_mps)
 # println("Compute purity of mixed state")
 # @show purity = computePurity(initialMPS);
 
-
 # println("Run DMRG for bond dimension = 1")
 # elapsed_time = @elapsed begin
 #     gsMPS, gsEnergy = DMRG2(initialMPS, lindbladHermitian, bondDim = 16, truncErr = 1e-6, convTolE = 1e-6, maxIterations=1, verbosePrint = true);
@@ -103,7 +104,7 @@ plot(range(1,10, length=10), local_polarization_z_mps)
 #     if  -N <= sum(computeSiteExpVal(initialMPS, Mxs)) <= N || 
 #         -N <= sum(computeSiteExpVal(initialMPS, Mys)) <= N || 
 #         -N <= sum(computeSiteExpVal(initialMPS, Mzs)) <= N
-    
+
 #         println("Run DMRG for bond dimension = 2")
 #         elapsed_time = @elapsed begin
 #             gsMPS, gsEnergy = DMRG2(gsMPS, lindbladHermitian, bondDim = 2, truncErr = 1e-6, convTolE = 1e-5, maxIterations=1, verbosePrint = true);
