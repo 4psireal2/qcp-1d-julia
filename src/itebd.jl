@@ -2,87 +2,12 @@ using TensorKit
 using KrylovKit # Lanczos - real EVal, Oddrnoldi - complex Eval
 
 
-function contractEnv(X, env)
-    """
-    Iterative contracting function to find dominant eigenvector := transfer operator
-    """
-    @tensor X[-1; -2] := env[-1, 2, -2, 1] * X[1, 2];
-    return X
-end
-
-
-function findTransferOp(transferOp, env; tol=1e-12, maxiter=1000)
-    """
-    Contract an infinite 2-site unit cell to create a transfer operator
-
-    Params:
-    - transferOp: initial guess of the transfer operator, dim = bondDim x bondDim
-    - env: environment to be contracted into
-    """
-    _, transferOp = eigsolve(transferOp, 1, :LM, KrylovKit.Arnoldi(tol = tol, maxiter = maxiter)) do x contractEnv(x, env) end; 
-    transferOp = transferOp[1] / norm(transferOp[1]);  # extract dominant eigenvector
-
-    return transferOp
-end
-
-
-function findGauge(env; isConj::Bool)
-    ###XXX: remove negative eigenenvalues?
-
-    eVecs = (env + env') / 2;
-    eval, evec = eig(eVecs, (1, ), (2, ));
-
-    evalMat = reshape(convert(Array, eval), (dim(space(eval)[1]), dim(space(eval)[1])));
-    if sum(diag(real(evalMat))) < 0
-        eval = -eval; # eVecs is equivalent up to overall sign ;
-    end
-        
-    gaugeOp = evec * sqrt(eval);
-    if isConj
-        gaugeOp = gaugeOp';
-    end
-
-    return gaugeOp
-end
-
-
-function orthogonalizeiMPS!(bondTensor, weightMid, weightSide, transferOpL, transferOpR)
-    """
-    Return left and right tensor over a link such that
-    the new transfer operators are orthonormalized
-    
-    transferOpL_can = (weightSide * tensorL) *  (weightSide * tensorL)' [left-normalised]
-    transferOpR_can = (tensorR * weightSide) *  (tensorR * weightSide)' [right-normalised]
-    """
-
-    gaugeL = findGauge(transferOpL, isConj=true); # X'
-    gaugeR = findGauge(transferOpR, isConj=false); # Y
-
-    @tensor weightSide[-1; -2] := gaugeL[-1, 1] * weightSide[1, 2] * gaugeR[2, -2];
-    weightSide /= norm(weightSide);
-    
-    # orthogonalize coarse-grained bondTensor
-    @tensor bondTensor[-1 -2 -3; -4] := gaugeR'[-1, 2] * bondTensor[2, -2, -3, 3] *
-                                        gaugeL'[3, -4];
-
-    # decompose bondTensor (Eq. 7 iTEBD.5)
-    @tensor bondTensor[-1 -2 -3; -4] := weightSide[-1, 1] * bondTensor[1, -2, -3, 2] * weightSide[2, -4];
-    U, S, V, _ = tsvd(bondTensor, (1, 2), (3, 4));
-    weightMid = S/norm(S);
-
-    @tensor tensorL[-1 -2; -3] := pinv(weightSide)[-1, 1] * U[1, -2, -3];
-    @tensor tensorR[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3];
-    
-    return tensorL, tensorR, weightMid, weightSide
-end
-
-
 function applyGate!(leftT, rightT, weightMid, weightSide, op, bondDim, truncErr)
+
     @tensor bondTensor[-1 -2 -3; -4] := weightSide[-1, 1] * leftT[1, -2, 2] * weightMid[2, 3] * 
                                         rightT[3, -3, 4] * weightSide[4, -4];
     @tensor bondTensor[-1 -2 -3; -4] := op[-2, -3, 1, 2] * bondTensor[-1, 1, 2, -4];
-    # bondTensor_mat = reshape(convert(Array, bondTensor), dim(space(bondTensor)[2]), dim(space(bondTensor)[2]));
-    # @show bondTensor_mat
+    bondTensor /= norm(bondTensor);
 
     U, S, V, ϵ = tsvd(bondTensor, (1, 2, ), (3, 4, ), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
     
@@ -90,73 +15,194 @@ function applyGate!(leftT, rightT, weightMid, weightSide, op, bondDim, truncErr)
     @tensor rightT[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3];
     weightMid = S / norm(S);
 
-    # updated bondTensor
-    @tensor bondTensor[-1 -2 -3; -4] := U[-1, -2, 1] * S[1, 2] * V[2, -3, -4];
-
-    return bondTensor, leftT, rightT, weightMid
+    return leftT, rightT, weightMid
 end
 
 
-function computeBondEnergy(bondTensor, leftT, rightT, weightMid, weightSide, op)
+function applyUGateLPTN!(leftT, rightT, weightMid, weightSide, op, bondDim, truncErr)
 
-    # compute left-bond energy
-    @tensor bondL[-1 -2 -3; -4] :=  weightSide[-1, 1] * 
-                                    leftT[1, 2, 3] * weightMid[3, 4] * rightT[4, 5, 6] * 
-                                    weightSide[6, -4] *
-                                    op[-2, -3, 2, 5];
-    @tensor bondL[-2; -1] :=    bondL[1, 3, 6, -1] * 
-                                conj(weightSide[1, 2]) * 
-                                conj(leftT[2, 3, 4]) * conj(weightMid[4, 5]) * conj(rightT[5, 6, 7]) *
-                                conj(weightSide[7, -2]);
+    QR, R = leftorth(leftT, (1, 2,), (3, 4, ), alg = QRpos());
+    QR = permute(QR, (1, 2), (3, ));
+    R = permute(R, (1, ), (2, 3));
 
-    @tensor rightSide[-1 -2; -3] := leftT[-1, -2 ,1] * weightMid[1, -3];
-    @tensor energyL = bondL[4, 1] * rightSide[1, 2, 3] * conj(rightSide[4, 2, 3]);
+    L, QL = rightorth(rightT, (1, 3, ), (2, 4), alg = LQpos());
+    L = permute(L, (1, ), (2, 3));
+    QL = permute(QL, (1, 2), (3, ));
 
-    # compute right-bond energy
-    @tensor bondR[-1 -2 -3; -4] :=  weightMid[-1, 1] * 
-                                    rightT[1, 2, 3] * weightSide[3, 4] * leftT[4, 5, 6] * 
-                                    weightMid[6, -4] *
-                                    op[-2, -3, 2, 5];
+    @tensor bondTensor[-1 -2 -3; -4 -5 -6] := weightSide[-1, 1] * QR[1, -2, 2] * R[2, 3, 4] * weightMid[4, 5] * 
+                                        L[5, 6, 7] * QL[7, -3, 8] * op[3, 6, -4, -5] * weightSide[8, -6];
 
-    @tensor bondR[-1; -2] :=    bondR[-1, 1, 2, 3] * 
-                                conj(weightMid[-2, 4]) * 
-                                conj(rightT[4, 1, 5]) * conj(weightSide[5, 6]) * conj(leftT[6, 2, 7]) *
-                                conj(weightMid[7, 3]);
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6), trunc = truncdim(bondDim) & truncerr(truncErr), alg = TensorKit.SVD());
+    weightMid = S / norm(S); # to normalise truncated bondTensor
+
+    @tensor leftT[-1 -2; -3 -4] := pinv(weightSide)[-1, 1] * U[1, -2, -3, -4];
+    @tensor rightT[-1 -2; -3 -4] := V[-1, -2, -3, 1] * pinv(weightSide)[1, -4];
+
+    return leftT, rightT, weightMid, ϵ
+
+end
+
+
+function applyDGateLPTN!(leftT, rightT, weightSide, krausOp, krausDim, truncErr)
+    @tensor leftT[-1 -2 -3; -4 -5] := krausOp[1, -2, -4] * leftT[-1, -3, 1, -5];
+    leftT /= norm(leftT);
+
+    U, S, V, ϵ = tsvd(leftT, (2, 3), (1, 4, 5), trunc = truncdim(krausDim) & truncerr(truncErr), alg = TensorKit.SVD());
+    S /= norm(S); # normalise truncated bondTensor
+    leftT = permute(S * V, (2, 1), (3, 4));
+
+    @tensor rightT[-1 -2 -3; -4 -5] := krausOp[1, -2, -4] * rightT[-1, -3, 1, -5];
+    U, S, V, ϵ = tsvd(rightT, (2, 3), (1, 4, 5), trunc = truncdim(krausDim) & truncerr(truncErr), alg = TensorKit.SVD());
+    S /= norm(S); # normalise truncated bondTensor
+    rightT = permute(S * V, (2, 1), (3, 4));
+
+    # orthonormalize
+    @tensor bondTensor[-1 -2 -3; -4 -5 -6] := weightSide[-1, 1] * leftT[1, -2, -4, 2] * rightT[2, -3, -5, 3] * weightSide[3, -6];
+    U, S, V, _ = tsvd(bondTensor, (1, 2, 4), (3, 5, 6));
+
+    weightMid = S / norm(S);
+    @tensor leftT[-1 -2; -3 -4] := pinv(weightSide)[-1, 1] * U[1, -2, -3, -4];
+    @tensor rightT[-1 -2; -3 -4] := V[-1, -2, -3, 1] * pinv(weightSide)[1, -4];
+
+    return leftT, rightT, weightMid
+end
+
+
+function computeBondEnergy(Go, Ge, Lo, Le, op)
+    """
+    Compute bond energy for iMPS Ansatz
+    """
     
-    @tensor leftSide[-1 -2; -3] := weightSide[-1, 1] * leftT[1, -2, -3];
-    @tensor energyR = bondR[3, 4] * leftSide[1, 2, 3] * conj(leftSide[1, 2, 4]);
+    # energy for odd bond
+    @tensor bondTensorO[-1 -2 -3; -4] := Le[-1, 1] * Go[1, -2, 2] * Lo[2, 3] * Ge[3, -3, 4] * Le[4, -4];
+    @tensor energyO = bondTensorO[1, 2, 3, 4] * op[5, 6, 2, 3] * conj(bondTensorO[1, 5, 6, 4]);
+    energyO /= norm(bondTensorO);    
 
-    @tensor iNorm = bondTensor[1, 2, 3, 4] * conj(bondTensor[1, 2, 3, 7]) * rightSide[4, 5, 6] * conj(rightSide[7, 5, 6]);
+    # energy for even bond
+    @tensor bondTensorE[-1 -2 -3; -4] := Lo[-1, 1] * Ge[1, -2, 2] * Le[2, 3] * Go[3, -3, 4] * Lo[4, -4];
+    @tensor energyE = bondTensorE[1, 2, 3, 4] * op[5, 6, 2, 3] * conj(bondTensorE[1, 5, 6, 4]);
+    energyE /= norm(bondTensorE);
 
 
-    if abs(imag(energyL)) < 1e-12 && abs(imag(energyR)) < 1e-12 && abs(imag(iNorm)) < 1e-12
-        return (1/2) * (energyL + energyR) / iNorm
+    if abs(imag(energyO)) < 1e-12 && abs(imag(energyE)) < 1e-12
+        return (1/2) * (energyO + energyE) 
     else
-        ErrorException("Oops! Complex energy or norm is found.")
+        ErrorException("Oops! Complex energy is found.")
     end
 
 end
 
 
-function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, H, bondDim; truncErr=1e-6,)
+function computeBondEnergyH(Go, Ge, Lo, Le, op)
+    """
+    Compute bond energy for iLPTN Ansatz
+    """
+    # energy for odd bond
+    @tensor bondTensorO[-1 -2 -3; -4 -5 -6] := Le[-1, 1] * Go[1, -2, -4, 2] * Lo[2, 3] * Ge[3, -3, -5, 4] * Le[4, -6];
+    @tensor energyO = bondTensorO[5, 6, 7, 3, 4, 8] * op[3, 4, 1, 2] * conj(bondTensorO[5, 6, 7, 1, 2, 8]);
+    energyO /= norm(bondTensorO);    
+
+    # energy for even bond
+    @tensor bondTensorE[-1 -2 -3; -4 -5 -6] := Lo[-1, 1] * Ge[1, -2, -4, 2] * Le[2, 3] * Go[3, -3, -5, 4] * Lo[4, -6];
+    @tensor energyE = bondTensorE[5, 6, 7, 3, 4, 8] * op[3, 4, 1, 2] * conj(bondTensorE[5, 6, 7, 1, 2, 8]);
+    energyE /= norm(bondTensorE);
+
+
+    if abs(imag(energyO)) < 1e-12 && abs(imag(energyE)) < 1e-12
+        return (1/2) * (energyO + energyE) 
+    else
+        ErrorException("Oops! Complex energy is found.")
+    end
+
+end
+
+
+function computeBondEnergyD(Go, Ge, Lo, Le, krausOp)
+    
+    # energy for odd site -> bondTensor = Le - Go - Lo
+    @tensor bondTensorO[-1 -2;-3 -4] := Le[-1, 1] * Go[1, -2, -3, 2] * Lo[2, -4];
+    @tensor bondTensorOK[-1 -2 -3; -4 -5] := krausOp[1, -2, -4] * bondTensorO[-1, -3, 1, -5];
+    # iDT = TensorMap(ones, space(bondTensorO, 3), space(bondTensorOK, 2) ⊗ space(bondTensorOK, 3));
+
+    fuser = isometry(space(bondTensorO, 2),
+                    space(bondTensorOK, 2) ⊗ space(bondTensorOK, 3));
+
+                    
+    @tensor energyO = bondTensorOK[1, 2, 3, 4, 5] * fuser[6, 2, 3] * conj(bondTensorO[1, 6, 4, 5]);
+    energyO /= norm(bondTensorO);    
+
+    # # energy for even bond -> bondTensor = Lo - Ge - Le
+    # @tensor bondTensorE[-1 -2 -3; -4 -5 -6] := Lo[-1, 1] * Ge[1, -2, -4, 2] * Le[2, 3] * Go[3, -3, -5, 4] * Lo[4, -6];
+    # @tensor energyE = bondTensorE[5, 6, 7, 3, 4, 8] * op[3, 4, 1, 2] * conj(bondTensorE[5, 6, 7, 1, 2, 8]);
+    # energyE /= norm(bondTensorE);
+
+
+    if abs(imag(energyO)) < 1e-12 
+        return (1/2) * (energyO) 
+    else
+        ErrorException("Oops! Complex energy is found.")
+    end
+
+end
+
+
+function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, H, bondDim; truncErr=1e-6)
     """
     2nd order TEBD for unitary evolution for one time step
     """
 
     # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
-    bondTensorOdd, Go, Ge, Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
-    energyOdd1 = computeBondEnergy(bondTensorOdd, Go, Ge, Lo, Le, H);
-
+    Go, Ge, Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+    
     # even bond update -> bondTensor = Lo - Ge - Le - Go - Lo
-    bondTensorEven, Ge, Go, Le = applyGate!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
-    energyEven = computeBondEnergy(bondTensorEven, Ge, Go, Le, Lo, H);
+    Ge, Go, Le = applyGate!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
+    
+    # # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
+    # Go, Ge, Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+
+
+    return Go, Ge, Lo, Le, computeBondEnergy(Go, Ge, Lo, Le, H)        
+end
+
+
+function iTEBD_for_LPTN!(Go, Ge, Lo, Le, expHo, expHe, expD, bondDim, krausDim; truncErr=1e-6)
+    ### XXX: How to calculate energy
+    """
+    2nd order iTEBD with dissipative layer for one time step
+
+    Params:
+    - Go, Ge, Lo, Le: from 2-site canonical form
+
+    """
 
     # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
-    # bondTensorOdd, Go, Ge,  Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
-    # energyOdd2 = computeBondEnergy(bondTensorOdd, Go, Ge, Lo, Le, H);
-    
-    # return Go, Ge, Lo, Le, (1/3) * (energyOdd1 + energyEven + energyOdd2)
-    return Go, Ge, Lo, Le, (1/2) * (energyOdd1 + energyEven)
+    Go, Ge, Lo = applyUGateLPTN!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
 
-        
+    # even bond update -> bondTensor = Lo - Ge - Le - Go - Lo
+    Ge, Go, Le = applyUGateLPTN!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
+
+    # dissipative process on bondTensor = Lo - Ge - Le - Go - Lo
+    Ge, Go, Le = applyDGateLPTN!(Ge, Go, Lo, expD, krausDim, truncErr);
+
+
+    # # left-isometry
+    # @tensor leftEnv[-2; -1] := Lo[1, 2] * Ge[2, 3, 4, -1] * conj(Lo[1, 5]) * conj(Ge[5, 3, 4, -2]);
+    # @show space(leftEnv)
+    # @show leftEnv
+
+    # # right-isometry
+    # @tensor rightEnv[-1; -2] := Go[-1, 1, 2, 3] * Lo[3, 4] * conj(Lo[5, 4]) * conj(Go[-2, 1, 2, 5]);
+    # @show space(rightEnv)
+    # @show rightEnv
+
+
+    # even bond update -> bondTensor = Lo - Ge - Le - Go - Lo
+    Ge, Go, Le = applyUGateLPTN!(Ge, Go, Le, Lo, expHe, bondDim, truncErr);
+
+    # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
+    Go, Ge, Lo = applyUGateLPTN!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
+
+    return Go, Ge, Lo, Le
+        #    computeBondEnergy(Go, Ge, Lo, Le, H) + computeBondEnergyD(Go, Ge, Lo, Le, krausOp)        
+
 end

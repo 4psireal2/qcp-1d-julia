@@ -2,38 +2,6 @@ using LinearAlgebra
 using TensorKit
 
 
-function expHam(omega, tau)
-    sigmaX = 0.5 * [0 +1 ; +1 0];
-    numberOp = [0 0; 0 1];
-    ham = omega * (kron(sigmaX,numberOp) + kron(numberOp, sigmaX));
-
-    propagator = exp(-1im * tau * ham);
-    expHamOp = TensorMap(propagator, ℂ^2 ⊗ ℂ^2,  ℂ^2 ⊗ ℂ^2);
-
-    return expHamOp
-end
-
-
-function expDiss(gamma, tau)
-    annihilationOp = [0 1; 0 0];
-    numberOp = [0 0; 0 1];
-    Id = [+1 0 ; 0 +1];
-    numberOpR = kron(numberOp, Id);
-    numberOpL = kron(Id, numberOp);
-
-    diss = gamma * kron(annihilationOp, annihilationOp) - (1/2) * numberOpR - (1/2) * numberOpL;
-    diss = TensorMap(diss, ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)');
-    diss = exp(tau * diss);
-
-    # EVD    
-    D, V = eig(diss, (1, 3), (2, 4));
-    B = permute(sqrt(D) * V', (3, 1), (2, ));
-
-    return B
-
-end
-
-
 function applyGate(Xa, Xb, oP, bondDim, truncErr)
     """
     Apply a 2-site gate on Xa and Xb
@@ -59,9 +27,9 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=true)
     2nd order TEBD with dissipative layer for one time step
 
     Returns:
-        X_t: orthonormalized left-canonical MPO
-        ϵHTrunc: truncation errors in bond dimension
-        ϵDTrunc: truncation errors in Kraus dimension
+    - X_t: orthonormalized left-canonical MPO
+    - ϵHTrunc: truncation errors in bond dimension
+    - ϵDTrunc: truncation errors in Kraus dimension
     """
 
     ϵHTrunc = Vector{Float64}();

@@ -35,6 +35,7 @@ function createXOnes(N::Int64; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int6
     return X
 end
 
+
 function createXBasis(N::Int64, basis; d::Int64 = 2, bondDim::Int64 = 1,  krausDim::Int64 = 1)
     X = Vector{TensorMap}(undef, N);
     for i = 1 : N
@@ -164,7 +165,7 @@ end
 function computeSiteExpVal!(X, onSiteOp)
     """
     Args:
-        X : left-canonical MPO
+    - X : left-canonical MPO
     
     Note! X becomes right-canonical 
     """
@@ -230,7 +231,7 @@ end
 function computeSiteExpVal_test_1!(X, onSiteOp)
     """
     Args:
-        X : left-canonical MPO
+    - X : left-canonical MPO
     
     Note! X becomes right-canonical 
     """
@@ -264,7 +265,7 @@ function densDensCorr(r::Int64, X, onSiteOp)
     Ref: [https://arxiv.org/pdf/1306.2164] - P.17
 
     Args:
-        X : left-canonical MPO
+    - X : left-canonical MPO
     """
 
     N = length(X);
