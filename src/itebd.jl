@@ -97,32 +97,6 @@ function applyDGateLPTN!(leftT, rightT, weightSide, krausOp, krausDim, truncErr)
     return leftT, rightT, weightMid
 end
 
-function computeBondEnergy(Go, Ge, Lo, Le, op)
-    """
-    Compute bond energy for iMPS Ansatz
-    """
-
-    # energy for odd bond
-    @tensor bondTensorO[-1 -2 -3; -4] :=
-        Le[-1, 1] * Go[1, -2, 2] * Lo[2, 3] * Ge[3, -3, 4] * Le[4, -4]
-    @tensor energyO =
-        bondTensorO[1, 2, 3, 4] * op[5, 6, 2, 3] * conj(bondTensorO[1, 5, 6, 4])
-    energyO /= norm(bondTensorO)
-
-    # energy for even bond
-    @tensor bondTensorE[-1 -2 -3; -4] :=
-        Lo[-1, 1] * Ge[1, -2, 2] * Le[2, 3] * Go[3, -3, 4] * Lo[4, -4]
-    @tensor energyE =
-        bondTensorE[1, 2, 3, 4] * op[5, 6, 2, 3] * conj(bondTensorE[1, 5, 6, 4])
-    energyE /= norm(bondTensorE)
-
-    if abs(imag(energyO)) < 1e-12 && abs(imag(energyE)) < 1e-12
-        return (1 / 2) * (energyO + energyE)
-    else
-        ErrorException("Oops! Complex energy is found.")
-    end
-end
-
 function computeBondEnergyH(Go, Ge, Lo, Le, op)
     """
     Compute bond energy for iLPTN Ansatz
@@ -173,7 +147,7 @@ function computeBondEnergyD(Go, Ge, Lo, Le, krausOp)
     end
 end
 
-function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, H, bondDim; truncErr=1e-6)
+function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, bondDim; truncErr=1e-6)
     """
     2nd order TEBD for unitary evolution for one time step
     """
@@ -187,7 +161,7 @@ function iTEBD!(Go, Ge, Lo, Le, expHo, expHe, H, bondDim; truncErr=1e-6)
     # # odd bond update -> bondTensor = Le - Go - Lo - Ge - Le
     # Go, Ge, Lo = applyGate!(Go, Ge, Lo, Le, expHo, bondDim, truncErr);
 
-    return Go, Ge, Lo, Le, computeBondEnergy(Go, Ge, Lo, Le, H)
+    return Go, Ge, Lo, Le
 end
 
 function iTEBD_for_LPTN!(

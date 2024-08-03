@@ -4,7 +4,7 @@ using KrylovKit # Lanczos - real EVal, Oddrnoldi - complex Eval
 function computeSiteExpVal!(Go, Ge, Lo, Le, onSiteOp)
     """
     Args:
-    - X : left-canonical MPO    
+    - Go, Ge, Lo, Le of 2-site canonical iLPTN   
     """
 
     # for odd site -> bondTensor = Le - Go - Lo
@@ -26,5 +26,4 @@ function computeSiteExpVal!(Go, Ge, Lo, Le, onSiteOp)
     end
 end
 
-function orthogonalizeiMPS!(bondTensor, weightSide, transferOpL, transferOpR)
-end
+function orthogonalizeiMPS!(bondTensor, weightSide, transferOpL, transferOpR) end

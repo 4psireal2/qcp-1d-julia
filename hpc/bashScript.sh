@@ -39,7 +39,7 @@
 
 
 # load Julia module
-module load julia/1.10.2
+module load julia/1.10.4
 
 # set number of CPUs
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK

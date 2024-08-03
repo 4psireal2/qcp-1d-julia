@@ -1,79 +1,207 @@
+using LinearAlgebra
 using TensorKit
 using KrylovKit # Lanczos - real EVal, Oddrnoldi - complex Eval
 
-function contractEnv(X, env)
-    """
-    Iterative contracting function to find dominant eigenvector := transfer operator
-    """
-    @tensor X[-1; -2] := env[-1, 2, -2, 1] * X[1, 2]
+function contractEnvL(X, weightSide, leftT, weightMid, rightT)
+    @tensor X[-2; -1] :=
+        X[7, 1] *
+        weightSide[1, 2] *
+        leftT[2, 3, 4] *
+        weightMid[4, 5] *
+        rightT[5, 6, -1] *
+        conj(weightSide[7, 8]) *
+        conj(leftT[8, 3, 9]) *
+        conj(weightMid[9, 10]) *
+        conj(rightT[10, 6, -2])
     return X
 end
 
-function findTransferOp(transferOp, env; tol=1e-12, maxiter=1000)
-    """
-    Contract an infinite 2-site unit cell to create a transfer operator
-
-    Params:
-    - transferOp: initial guess of the transfer operator, dim = bondDim x bondDim
-    - env: environment to be contracted into
-    """
-    _, transferOp =
-        eigsolve(transferOp, 1, :LM, KrylovKit.Arnoldi(; tol=tol, maxiter=maxiter)) do x
-            contractEnv(x, env)
-        end
-    transferOp = transferOp[1] / norm(transferOp[1])  # extract dominant eigenvector
-
-    return transferOp
+function contractEnvR(X, weightSide, leftT, weightMid, rightT)
+    @tensor X[-1; -2] :=
+        X[6, 10] *
+        rightT[-1, 1, 2] *
+        weightSide[2, 3] *
+        leftT[3, 4, 5] *
+        weightMid[5, 6] *
+        conj(rightT[-2, 1, 7]) *
+        conj(weightSide[7, 8]) *
+        conj(leftT[8, 4, 9]) *
+        conj(weightMid[9, 10])
+    return X
 end
 
-function findGauge(env; isConj::Bool)
-    ###XXX: remove negative eigenenvalues?
+function leftContraction!(
+    transferOpLBond1, weightSide, leftT, weightMid, rightT; niters=300, tol=1e-10
+)
+    """
+    Contract an infinite 2-site unit cell from the left to create transfer operators
+    leftT_bond2 and leftT_bond1 using Lanczos method as eigensolver
+    """
 
-    eVecs = (env + env') / 2
-    eval, evec = eig(eVecs, (1,), (2,))
-
-    evalMat = reshape(convert(Array, eval), (dim(space(eval)[1]), dim(space(eval)[1])))
-    if sum(diag(real(evalMat))) < 0
-        eval = -eval # eVecs is equivalent up to overall sign ;
+    # create left transfer operator across bond1
+    _, transferOpLBond1 = eigsolve(
+        transferOpLBond1, 1, :LM, KrylovKit.Arnoldi(; tol=tol, maxiter=niters)
+    ) do x
+        contractEnvL(x, weightSide, leftT, weightMid, rightT)
     end
+    transferOpLBond1 = transferOpLBond1[1] # extract dominant eigenvector
+    transferOpLBond1 = 0.5 * (transferOpLBond1 + transferOpLBond1')
+    transferOpLBond1 /= norm(transferOpLBond1)
 
-    gaugeOp = evec * sqrt(eval)
-    if isConj
-        gaugeOp = gaugeOp'
-    end
+    # create left transfer operator across bond2
+    @tensor transferOpLBond2[-2; -1] :=
+        transferOpLBond1[4, 1] *
+        weightSide[1, 2] *
+        conj(weightSide[4, 5]) *
+        leftT[2, 3, -1] *
+        conj(leftT[5, 3, -2])
+    transferOpLBond2 /= norm(transferOpLBond2)
 
-    return gaugeOp
+    return transferOpLBond1, transferOpLBond2
 end
 
-function orthogonalizeiMPS!(bondTensor, weightSide, transferOpL, transferOpR)
+function rightContraction!(
+    transferOpRBond2, weightSide, leftT, weightMid, rightT; niters=300, tol=1e-10
+)
     """
-    Return left and right tensor over a link such that
-    the new transfer operators are orthonormalized
-
-    transferOpL_can = (weightSide * tensorL) *  (weightSide * tensorL)' [left-normalised]
-    transferOpR_can = (tensorR * weightSide) *  (tensorR * weightSide)' [right-normalised]
+    Contract an infinite 2-site unit cell from the right to create transfer operators
+    rightT_OE and rightT_EO
     """
 
-    gaugeL = findGauge(transferOpL; isConj=true) # X'
-    gaugeR = findGauge(transferOpR; isConj=false) # Y
+    # create right transfer operator across bond2
+    _, transferOpRBond2 = eigsolve(
+        transferOpRBond2, 1, :LM, KrylovKit.Arnoldi(; tol=tol, maxiter=niters)
+    ) do x
+        contractEnvR(x, weightSide, leftT, weightMid, rightT)
+    end
+    transferOpRBond2 = transferOpRBond2[1] # extract dominant eigenvector
+    transferOpRBond2 = 0.5 * (transferOpRBond2 + transferOpRBond2')
+    transferOpRBond2 /= norm(transferOpRBond2)
 
-    @tensor weightSide[-1; -2] := gaugeL[-1, 1] * weightSide[1, 2] * gaugeR[2, -2]
-    weightSide /= norm(weightSide)
+    # create right transfer operator across bond1
+    @tensor transferOpRBond1[-1; -2] :=
+        weightMid[3, 5] *
+        leftT[-1, 1, 2] *
+        conj(leftT[-2, 1, 4]) *
+        weightMid[2, 3] *
+        conj(weightMid[4, 5])
+    transferOpRBond1 /= norm(transferOpRBond1)
 
-    U, S, V, _ = tsvd(weightSide, (1,), (2,); alg=TensorKit.SVD())
+    return transferOpRBond2, transferOpRBond1
+end
 
-    # orthogonalize coarse-grained bondTensor
-    @tensor bondTensor[-1 -2 -3; -4] :=
-        V[-1, 1] * gaugeR'[1, 2] * bondTensor[2, -2, -3, 3] * gaugeL'[3, 4] * U[4, -4]
+function orthonormalizeiMPS(
+    transferOpL, transferOpR, weightSide, leftT, weightMid, rightT; dtol=1e-12
+)
+    """
+    Return:
+    - orthnormalized left and right tensor
+    - transferOpL: left normalized by gaugeL
+    - transferOpR: right normalized by gaugeR
+    """
 
-    # decompose bondTensor (Eq. 7 iTEBD.5)
-    @tensor bondTensor[-1 -2 -3; -4] :=
-        weightSide[-1, 1] * bondTensor[1, -2, -3, 2] * weightSide[2, -4]
-    U, S, V, _ = tsvd(bondTensor, (1, 2), (3, 4); alg=TensorKit.SVD())
+    # diagonalize left environment tensor
+    envL_mat = reshape(
+        convert(Array, transferOpL), dim(space(transferOpL, 1)), dim(space(transferOpL, 1))
+    )
+    dtemp = eigen(0.5 * (envL_mat + envL_mat'))
+    ord = sortperm(real(dtemp.values); rev=true)
+    chitemp = sum(real(dtemp.values) .> dtol)
+    UL = dtemp.vectors[:, ord[1:chitemp]]
+    DL = dtemp.values[ord[1:chitemp]]
+
+    # envL = evec_L* eval_L * evec_L'
+    evec_L = TensorMap(UL, ComplexSpace(size(UL)[1]), ComplexSpace(size(UL)[2]))
+    eval_L = TensorMap(diagm(DL), ComplexSpace(size(DL)[1]), ComplexSpace(size(DL)[1]))
+    X = sqrt(eval_L) * evec_L'
+
+    # diagonalize right environment tensor
+    envR_mat = reshape(
+        convert(Array, transferOpR), dim(space(transferOpR, 1)), dim(space(transferOpR, 1))
+    )
+    dtemp = eigen(0.5 * (envR_mat + envR_mat'))
+    ord = sortperm(real(dtemp.values); rev=true)
+    chitemp = sum(real(dtemp.values) .> dtol)
+    UR = dtemp.vectors[:, ord[1:chitemp]]
+    DR = dtemp.values[ord[1:chitemp]]
+
+    # envR = evec_R * eval_R * evec_R'
+    evec_R = TensorMap(UR, ComplexSpace(size(UR)[1]), ComplexSpace(size(UR)[2]))
+    eval_R = TensorMap(diagm(DR), ComplexSpace(size(DR)[1]), ComplexSpace(size(DR)[1]))
+    Y = evec_R * sqrt(eval_R)
+
+    @tensor weightMid[-1; -2] := X[-1, 1] * weightMid[1, 2] * Y[2, -2]
+
+    weightMid /= norm(weightMid)
+
+    U, S, V, _ = tsvd(weightMid, (1,), (2,); alg=TensorKit.SVD())
     weightMid = S / norm(S)
 
-    @tensor tensorL[-1 -2; -3] := pinv(weightSide)[-1, 1] * U[1, -2, -3]
-    @tensor tensorR[-1 -2; -3] := V[-1, -2, 1] * pinv(weightSide)[1, -3]
+    # build x,y gauge change matrices
+    @tensor gaugeL[-1; -2] := evec_L[-1, 1] * pinv(sqrt(eval_L))[1, 2] * U[2, -2]
+    @tensor gaugeR[-1; -2] := V[-1, 1] * pinv(sqrt(eval_R))[1, 2] * evec_R'[2, -2]
 
-    return tensorL, tensorR, weightMid, weightSide
+    @tensor leftT[-1 -2; -3] := leftT[-1, -2, 1] * gaugeL[1, -3]
+    @tensor rightT[-1 -2; -3] := gaugeR[-1, 1] * rightT[1, -2, -3]
+
+    @tensor leftT_norm[-1 -2; -3] := weightSide[-1, 1] * leftT[1, -2, 2] * weightMid[2, -3]
+    leftT /= norm(leftT_norm)
+
+    @tensor rightT_norm[-1 -2; -3] :=
+        weightMid[-1, 1] * rightT[1, -2, 2] * weightSide[2, -3]
+    rightT /= norm(rightT_norm)
+
+    return leftT, weightMid, rightT, gaugeL, gaugeR
+end
+
+function compute1SiteExpVal(Go, Ge, Lo, Le, onSiteOp)
+    """
+    Args:
+    - Go, Ge, Lo, Le of 2-site canonical iMPS    
+    """
+
+    # for odd site -> bondTensor = Le - Go - Lo
+    @tensor bondTensorO[-1 -2; -3] := Le[-1, 1] * Go[1, -2, 2] * Lo[2, -3]
+    @tensor expValO = onSiteOp[4, 2] * bondTensorO[1, 2, 3] * conj(bondTensorO[1, 4, 3])
+    expValO /= norm(bondTensorO)
+
+    # for even site -> bondTensor = Lo - Ge - Le
+    @tensor bondTensorE[-1 -2; -3] := Lo[-1, 1] * Ge[1, -2, 2] * Le[2, -3]
+    @tensor expValE = onSiteOp[4, 2] * bondTensorE[1, 2, 3] * conj(bondTensorE[1, 4, 3])
+    expValE /= norm(bondTensorE)
+
+    if abs(imag(expValO)) < 1e-12 && abs(imag(expValE)) < 1e-12
+        return (1 / 2) * (real(expValO) + real(expValE))
+    else
+        ErrorException("Oops! Complex expectation value is found.")
+    end
+end
+
+function compute2SiteExpVal(Go, Ge, Lo, Le, oP2)
+    """
+    Args:
+    - Go, Ge, Lo, Le of 2-site canonical iMPS        
+    """
+
+    # expVal for odd bond
+    @tensor bondTensorO[-1 -2 -3; -4] :=
+        Le[-1, 1] * Go[1, -2, 2] * Lo[2, 3] * Ge[3, -3, 4] * Le[4, -4]
+    @tensor expValO =
+        bondTensorO[1, 2, 3, 4] * oP2[5, 6, 2, 3] * conj(bondTensorO[1, 5, 6, 4])
+    expValO /= norm(bondTensorO)
+
+    # expVal for even bond
+    @tensor bondTensorE[-1 -2 -3; -4] :=
+        Lo[-1, 1] * Ge[1, -2, 2] * Le[2, 3] * Go[3, -3, 4] * Lo[4, -4]
+    @tensor expValE =
+        bondTensorE[1, 2, 3, 4] * oP2[5, 6, 2, 3] * conj(bondTensorE[1, 5, 6, 4])
+    expValE /= norm(bondTensorE)
+
+    if abs(imag(expValO)) < 1e-12 && abs(imag(expValE)) < 1e-12
+        return (1 / 2) * (real(expValO) + real(expValE))
+    else
+        @show expValO
+        @show expValE
+        ErrorException("Oops! Complex expectation value is found.")
+    end
 end
