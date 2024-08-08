@@ -1,6 +1,6 @@
 include("../examples/contact_process_model.jl")
 include("../src/dmrg.jl")
-include("../src/utility.jl")
+include("../src/vmPO.jl")
 using Printf
 using LinearAlgebra
 using Random

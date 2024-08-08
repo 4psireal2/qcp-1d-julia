@@ -128,7 +128,8 @@ println("Check single-site canonical form after full time evolution")
 @tensor rightEnv[-1; -2] := Go[-1, 1, 2] * Lo[2, 3] * conj(Lo[4, 3]) * conj(Go[-2, 1, 4]);
 @show rightEnv
 
-# full time evolution with random initial state (Very unstable !!!)
+### WARNING: Very unstable !!!
+# full time evolution with random initial state
 let
     println("Time evolution with random initial state")
     bondDim = 1
