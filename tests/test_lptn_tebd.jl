@@ -1,5 +1,6 @@
 include("../src/lptn.jl")
 include("../src/tebd.jl")
+include("../src/models.jl")
 
 using LinearAlgebra
 using TensorKit

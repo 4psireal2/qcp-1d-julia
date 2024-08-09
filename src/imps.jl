@@ -80,10 +80,10 @@ function rightContraction!(
 
     # create right transfer operator across bond1
     @tensor transferOpRBond1[-1; -2] :=
-        weightMid[3, 5] *
+        transferOpRBond2[3, 5] *
+        weightMid[2, 3] *
         leftT[-1, 1, 2] *
         conj(leftT[-2, 1, 4]) *
-        weightMid[2, 3] *
         conj(weightMid[4, 5])
     transferOpRBond1 /= norm(transferOpRBond1)
 
@@ -101,6 +101,7 @@ function orthonormalizeiMPS(
     """
 
     # diagonalize left environment tensor
+    eval_L_trial, eval_L_trial = eig(0.5 * (transferOpL * transferOpL'))
     envL_mat = reshape(
         convert(Array, transferOpL), dim(space(transferOpL, 1)), dim(space(transferOpL, 1))
     )
