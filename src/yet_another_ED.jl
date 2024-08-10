@@ -85,14 +85,9 @@ J = 1.0
 g = 1.0
 
 Id = [+1 0; 0 +1]
+Sx = [0 +1; +1 0]
+Sz = [+1 0; 0 -1]
 
-sigmaX = 0.5 * [0 +1; +1 0]
-sigmaXL = kron(sigmaX, Id)
-sigmaXR = kron(Id, sigmaX)
-
-sigmaZ = 0.5 * [+1 0; 0 -1]
-sigmaZL = kron(sigmaZ, Id)
-sigmaZR = kron(Id, sigmaZ)
 H = -J * kron(Sz, Sz) - g * 0.5 * (kron(Sx, Id) + kron(Id, Sx));
 H = TensorMap(H, ComplexSpace(1) ⊗ ComplexSpace(2) ⊗ ComplexSpace(2), ComplexSpace(2) ⊗ ComplexSpace(2) ⊗ ComplexSpace(1))
 
