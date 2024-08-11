@@ -39,7 +39,7 @@ function createXOnes(N::Int64; d::Int64=2, bondDim::Int64=1, krausDim::Int64=1)
         ComplexSpace(1) ⊗ ComplexSpace(krausDim),
         ComplexSpace(d) ⊗ ComplexSpace(bondDim),
     )
-    for i in 2:(N - 1)
+    for i = 2:(N - 1)
         X[i] = TensorMap(
             ones,
             ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),
@@ -57,7 +57,7 @@ end
 
 function createXBasis(N::Int64, basis; d::Int64=2, bondDim::Int64=1, krausDim::Int64=1)
     X = Vector{TensorMap}(undef, N)
-    for i in 1:N
+    for i = 1:N
         tensorBase = zeros(ComplexF64, 1, krausDim, d, 1)
         tensorBase[:, :, 1, 1] = reshape([basis[i][1]], 1, 1)
         tensorBase[:, :, 2, 1] = reshape([basis[i][2]], 1, 1)
@@ -87,7 +87,7 @@ function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})
     )
 
     resultMPO = Vector{TensorMap}(undef, N)
-    for i in 1:N
+    for i = 1:N
         @tensor resultMPO[i][-1 -2; -3 -4] :=
             mpo1[i][1 2; -3 4] *
             mpo2[i][3 -2; 2 5] *
@@ -107,7 +107,7 @@ function orthogonalizeX!(X; orthoCenter::Int=1)::Vector{TensorMap}
 
     # bring sites 1 to orthoCenter-1 into left-orthogonal form
 
-    for i in 1:1:(orthoCenter - 1)
+    for i = 1:1:(orthoCenter - 1)
         Q, R = leftorth(X[i], (1, 2, 3), (4,); alg=QRpos())
 
         X[i + 0] = permute(Q, (1, 2), (3, 4))
@@ -115,7 +115,7 @@ function orthogonalizeX!(X; orthoCenter::Int=1)::Vector{TensorMap}
     end
 
     # bring sites orthCenter + 1 to N into right-orthogonal form
-    for i in N:-1:(orthoCenter + 1)
+    for i = N:-1:(orthoCenter + 1)
         L, Q = rightorth(X[i], (1,), (2, 3, 4); alg=LQpos())
 
         X[i - 1] = permute(permute(X[i - 1], (1, 2, 3), (4,)) * L, (1, 2), (3, 4))
@@ -127,8 +127,8 @@ end
 
 function orthonormalizeX!(X; orthoCenter=1)
     X = orthogonalizeX!(X; orthoCenter=orthoCenter)
-    normX = real(tr(X[1]' * X[1]))
-    X[1] /= sqrt(normX)
+    normX = real(tr(X[orthoCenter]' * X[orthoCenter]))
+    X[orthoCenter] /= sqrt(normX)
 
     return X
 end
@@ -145,7 +145,7 @@ function computeNorm(X; leftCan=false)::Float64
         boundaryL = TensorMap(ones, ℂ^1, ℂ^1)
         boundaryR = TensorMap(ones, ℂ^1, ℂ^1)
 
-        for i in 1:N
+        for i = 1:N
             @tensor boundaryL[-1; -2] :=
                 boundaryL[1, 2] * conj(X[i][1, 3, 4, -1]) * X[i][2, 3, 4, -2]
         end
@@ -154,7 +154,7 @@ function computeNorm(X; leftCan=false)::Float64
     end
 
     if abs(imag(lptnNorm)) < 1e-12
-        return real(lptnNorm)
+        return sqrt(real(lptnNorm))
     else
         ErrorException("Complex norm is found.")
     end
@@ -166,7 +166,7 @@ function computePurity(X)::Float64
     boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
     boundaryR = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
 
-    for i in 1:N
+    for i = 1:N
         @tensor boundaryL[-1 -2; -3 -4] :=
             boundaryL[4, 8, 1, 6] *
             X[i][1, 2, 3, -3] *
@@ -290,7 +290,7 @@ function densDensCorr(r::Int64, X, onSiteOp)
     """
 
     N = length(X)
-    lptnNorm = computeNorm(X; leftCan=true)
+    X = orthonormalizeX!(X; orthoCenter=1)
 
     # compute <O_{r} . O_{0}>
     boundaryL = TensorMap(ones, ℂ^1, ℂ^1)
@@ -309,11 +309,12 @@ function densDensCorr(r::Int64, X, onSiteOp)
     end
 
     dimTensorR = dim(space(X[r])[4])
-    boundaryR = TensorMap(ones, ℂ^dimTensorR, ℂ^dimTensorR)
+    idR = Matrix(I, dimTensorR, dimTensorR);
+    boundaryR = TensorMap(idR, ℂ^dimTensorR, ℂ^dimTensorR)
 
     meanProduct = tr(boundaryL * boundaryR)
     if abs(imag(meanProduct)) < 1e-12
-        meanProduct = real(meanProduct) / lptnNorm
+        meanProduct = real(meanProduct)
     else
         ErrorException("Complex expectation value is found.")
     end
@@ -321,7 +322,7 @@ function densDensCorr(r::Int64, X, onSiteOp)
     # compute <O_{0}>^2
     @tensor expVal_0 = onSiteOp[1, 2] * X[1][3, 4, 1, 5] * conj(X[1][3, 4, 2, 5])
     if abs(imag(expVal_0)) < 1e-12
-        productMean = real(expVal_0)^2 / lptnNorm^2
+        productMean = real(expVal_0)^2
     else
         ErrorException("Complex expectation value is found.")
     end
@@ -365,7 +366,6 @@ function computeEntSpec_cheap!(X)
     bondTensor /= norm(bondTensor)
 
     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3), (4, 5, 6); alg=TensorKit.SVD())
-    println(space(S)[1])
     S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]))
 
     return diag(S)

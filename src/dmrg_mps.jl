@@ -303,13 +303,12 @@ end
 
 function computeCorr2!(mps, mpo, index1, index2)
     mps = normalizeMPS(mps, orthCenter=index1)
-    N = length(mps)
+
     idL = Matrix(I, dim(space(mps[index1], 1)), dim(space(mps[index1], 1)));
     idR = Matrix(I, dim(space(mps[index2], 3)'), dim(space(mps[index2], 3)'));
     boundaryL = TensorMap(idL, space(mps[index1], 1), space(mps[index1], 1))
     boundaryR = TensorMap(idR, space(mps[index2], 3)', space(mps[index2], 3)')
-    # boundaryL = TensorMap(ones, ComplexSpace(1), ComplexSpace(1))
-    # boundaryR = TensorMap(ones, ComplexSpace(1), ComplexSpace(1))
+
 
     for i = index1: index2
     # for i = 1 : N

@@ -38,8 +38,11 @@ basis0 = [1, 0];
 basis1 = [0, 1];
 
 # check purity of LPTN format
-X = orthonormalizeX!(createXOnes(N; krausDim=3, bondDim=5));
+X = createXOnes(N; krausDim=3, bondDim=5);
+println("Before orthonomalization, $(computeNorm(X))") 
+X = orthonormalizeX!(X, orthoCenter=3);
 normX = computeNorm(X);
+@show normX
 @assert isapprox(normX, 1.0)
 purityX = computePurity(X);
 @assert isapprox(purityX, 1.0)
