@@ -39,7 +39,7 @@ function createXOnes(N::Int64; d::Int64=2, bondDim::Int64=1, krausDim::Int64=1)
         ComplexSpace(1) ⊗ ComplexSpace(krausDim),
         ComplexSpace(d) ⊗ ComplexSpace(bondDim),
     )
-    for i = 2:(N - 1)
+    for i in 2:(N - 1)
         X[i] = TensorMap(
             ones,
             ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),
@@ -57,7 +57,7 @@ end
 
 function createXBasis(N::Int64, basis; d::Int64=2, bondDim::Int64=1, krausDim::Int64=1)
     X = Vector{TensorMap}(undef, N)
-    for i = 1:N
+    for i in 1:N
         tensorBase = zeros(ComplexF64, 1, krausDim, d, 1)
         tensorBase[:, :, 1, 1] = reshape([basis[i][1]], 1, 1)
         tensorBase[:, :, 2, 1] = reshape([basis[i][2]], 1, 1)
@@ -87,7 +87,7 @@ function multiplyMPOMPO(mpo1::Vector{TensorMap}, mpo2::Vector{TensorMap})
     )
 
     resultMPO = Vector{TensorMap}(undef, N)
-    for i = 1:N
+    for i in 1:N
         @tensor resultMPO[i][-1 -2; -3 -4] :=
             mpo1[i][1 2; -3 4] *
             mpo2[i][3 -2; 2 5] *
@@ -107,7 +107,7 @@ function orthogonalizeX!(X; orthoCenter::Int=1)::Vector{TensorMap}
 
     # bring sites 1 to orthoCenter-1 into left-orthogonal form
 
-    for i = 1:1:(orthoCenter - 1)
+    for i in 1:1:(orthoCenter - 1)
         Q, R = leftorth(X[i], (1, 2, 3), (4,); alg=QRpos())
 
         X[i + 0] = permute(Q, (1, 2), (3, 4))
@@ -115,7 +115,7 @@ function orthogonalizeX!(X; orthoCenter::Int=1)::Vector{TensorMap}
     end
 
     # bring sites orthCenter + 1 to N into right-orthogonal form
-    for i = N:-1:(orthoCenter + 1)
+    for i in N:-1:(orthoCenter + 1)
         L, Q = rightorth(X[i], (1,), (2, 3, 4); alg=LQpos())
 
         X[i - 1] = permute(permute(X[i - 1], (1, 2, 3), (4,)) * L, (1, 2), (3, 4))
@@ -145,7 +145,7 @@ function computeNorm(X; leftCan=false)::Float64
         boundaryL = TensorMap(ones, ℂ^1, ℂ^1)
         boundaryR = TensorMap(ones, ℂ^1, ℂ^1)
 
-        for i = 1:N
+        for i in 1:N
             @tensor boundaryL[-1; -2] :=
                 boundaryL[1, 2] * conj(X[i][1, 3, 4, -1]) * X[i][2, 3, 4, -2]
         end
@@ -166,7 +166,7 @@ function computePurity(X)::Float64
     boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
     boundaryR = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
 
-    for i = 1:N
+    for i in 1:N
         @tensor boundaryL[-1 -2; -3 -4] :=
             boundaryL[4, 8, 1, 6] *
             X[i][1, 2, 3, -3] *
@@ -193,7 +193,6 @@ function computeSiteExpVal!(X, onSiteOp)
     """
     N = length(X)
 
-    lptnNorm = computeNorm(X; leftCan=true)
     expVals = zeros(Float64, N)
 
     for i in 1:N
@@ -201,12 +200,13 @@ function computeSiteExpVal!(X, onSiteOp)
 
         if i < N
             QR, R = leftorth(X[i], (1, 2, 3), (4,); alg=QRpos())
+            QR /= norm(QR)
             X[i] = permute(QR, (1, 2), (3, 4))
             X[i + 1] = permute(R * permute(X[i + 1], (1,), (2, 3, 4)), (1, 2), (3, 4))
         end
 
         if abs(imag(expVal)) < 1e-12
-            expVals[i] = real(expVal) / lptnNorm
+            expVals[i] = real(expVal)
         else
             ErrorException("Complex expectation value is found.")
         end
@@ -290,7 +290,7 @@ function densDensCorr(r::Int64, X, onSiteOp)
     """
 
     N = length(X)
-    X = orthonormalizeX!(X; orthoCenter=1)
+    # X = orthonormalizeX!(X; orthoCenter=1) # X is alr left-canonical!
 
     # compute <O_{r} . O_{0}>
     boundaryL = TensorMap(ones, ℂ^1, ℂ^1)
@@ -309,7 +309,7 @@ function densDensCorr(r::Int64, X, onSiteOp)
     end
 
     dimTensorR = dim(space(X[r])[4])
-    idR = Matrix(I, dimTensorR, dimTensorR);
+    idR = Matrix(I, dimTensorR, dimTensorR)
     boundaryR = TensorMap(idR, ℂ^dimTensorR, ℂ^dimTensorR)
 
     meanProduct = tr(boundaryL * boundaryR)
@@ -383,4 +383,15 @@ function compute2RenyiEntropy(X)
     Compute 2-Renyi entropy
     """
     return -log10(computePurity(X))
+end
+
+function computePuriEntanglement!(X)
+    N = length(X)
+    indCenter = N ÷ 2
+    X = orthonormalizeX!(X; orthoCenter=indCenter)
+    U, S, V, _ = tsvd(X[indCenter], (1, 3), (2, 4); alg=TensorKit.SVD())
+    S = convert(Array, S)
+    S = diag(S)
+
+    return -sum((S .^ 2) .* (log.(S .^ 2)))
 end

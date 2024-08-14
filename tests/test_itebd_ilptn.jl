@@ -5,7 +5,6 @@ using TensorKit
 # include("../src/models.jl")
 include("../src/ilptn.jl")
 
-
 # Test: canonical form
 # bond1 = odd bond - bondTensor = Le - Go - Lo - Ge - Le
 # bond2 = even bond - bondTensor = Lo - Ge - Le - Go - Lo
@@ -17,11 +16,18 @@ bondDimTrunc = 5;
 maxiter = 1000;
 tol = 1e-6;
 
-Go = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim), ComplexSpace(d) ⊗ ComplexSpace(bondDim));
-Ge = TensorMap(randn, ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim), ComplexSpace(d) ⊗ ComplexSpace(bondDim));
+Go = TensorMap(
+    randn,
+    ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),
+    ComplexSpace(d) ⊗ ComplexSpace(bondDim),
+);
+Ge = TensorMap(
+    randn,
+    ComplexSpace(bondDim) ⊗ ComplexSpace(krausDim),
+    ComplexSpace(d) ⊗ ComplexSpace(bondDim),
+);
 Lo = TensorMap(ones, ComplexSpace(bondDim), ComplexSpace(bondDim));
 Le = TensorMap(ones, ComplexSpace(bondDim), ComplexSpace(bondDim));
-
 
 initGuess = Matrix(I, bondDim, bondDim) ./ bondDim;
 transferOpLBond1 = TensorMap(initGuess, ComplexSpace(bondDim), ComplexSpace(bondDim));
@@ -56,8 +62,6 @@ Go, Lo, Ge, gaugeLOdd, gaugeROdd = orthonormalizeiLPTN(
 @tensor transferOpRBond2[-1; -2] :=
     gaugeROdd[-1, 1] * transferOpRBond2[1, 2] * gaugeROdd'[2, -2]
 @show transferOpRBond2
-
-
 
 # Test: time evolution
 # d = 2

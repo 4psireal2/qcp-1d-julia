@@ -134,8 +134,16 @@ function orthonormalizeiLPTN(
     chiTemp = sum(eval_L_trial .> dtol)
     evec_L_trial = evec_L_trial[:, ord[1:chiTemp]]
     eval_L_trial = eval_L_trial[ord[1:chiTemp]]
-    evec_L = TensorMap(evec_L_trial, ComplexSpace(size(evec_L_trial)[1]),ComplexSpace(size(evec_L_trial)[2]))
-    eval_L = TensorMap(diagm(eval_L_trial), ComplexSpace(size(eval_L_trial)[1]), ComplexSpace(size(eval_L_trial)[1]))
+    evec_L = TensorMap(
+        evec_L_trial,
+        ComplexSpace(size(evec_L_trial)[1]),
+        ComplexSpace(size(evec_L_trial)[2]),
+    )
+    eval_L = TensorMap(
+        diagm(eval_L_trial),
+        ComplexSpace(size(eval_L_trial)[1]),
+        ComplexSpace(size(eval_L_trial)[1]),
+    )
 
     @show evec_L * evec_L'
     X = sqrt(eval_L) * evec_L'
@@ -152,15 +160,22 @@ function orthonormalizeiLPTN(
     chiTemp = sum(eval_R_trial .> dtol)
     evec_R_trial = evec_R_trial[:, ord[1:chiTemp]]
     eval_R_trial = eval_R_trial[ord[1:chiTemp]]
-    evec_R = TensorMap(evec_R_trial, ComplexSpace(size(evec_R_trial)[1]),ComplexSpace(size(evec_R_trial)[2]))
-    eval_R = TensorMap(diagm(eval_R_trial), ComplexSpace(size(eval_R_trial)[1]), ComplexSpace(size(eval_R_trial)[1]))
-    
+    evec_R = TensorMap(
+        evec_R_trial,
+        ComplexSpace(size(evec_R_trial)[1]),
+        ComplexSpace(size(evec_R_trial)[2]),
+    )
+    eval_R = TensorMap(
+        diagm(eval_R_trial),
+        ComplexSpace(size(eval_R_trial)[1]),
+        ComplexSpace(size(eval_R_trial)[1]),
+    )
+
     @show evec_R * evec_R'
     Y = evec_R * sqrt(eval_R)
     @show Y' * Y
     @tensor test_trial_2[-1; -2] := Y'[-1, 1] * transferOpR[1, 2] * Y[2, -2]
     @show test_trial_2
-
 
     @tensor weightMid[-1; -2] := X[-1, 1] * weightMid[1, 2] * Y[2, -2]
 
@@ -180,7 +195,8 @@ function orthonormalizeiLPTN(
     @tensor leftT[-1 -2; -3 -4] := leftT[-1, -2, -3, 1] * gaugeL[1, -4]
     @tensor rightT[-1 -2; -3 -4] := gaugeR[-1, 1] * rightT[1, -2, -3, -4]
 
-    @tensor leftT_norm[-1 -2; -3 -4] := weightSide[-1, 1] * leftT[1, -2, -3, 2] * weightMid[2, -4]
+    @tensor leftT_norm[-1 -2; -3 -4] :=
+        weightSide[-1, 1] * leftT[1, -2, -3, 2] * weightMid[2, -4]
     leftT /= norm(leftT_norm)
 
     @tensor rightT_norm[-1 -2; -3 -4] :=

@@ -78,9 +78,9 @@ function main(args)
     n_t = zeros(nTimeSteps + 1)
     ϵHTrunc_t = Vector{Float64}[]
     ϵDTrunc_t = Vector{Float64}[]
-    entSpec_t = Vector{Float64}[]
+    puriEnt_t = []
     # renyiEnt_t = Vector{Float64}();
-    # densDensCorrelation = Array{Float64}(undef, N-1);
+    densDensCorrelation = Array{Float64}(undef, N - 1)
     n_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
     basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...)
@@ -99,19 +99,25 @@ function main(args)
         X_t = XInit
         for i in 1:nTimeSteps
             @time allocated_tebd = @allocated X_t, ϵHTrunc, ϵDTrunc = TEBD(
-                X_t, hamDyn, dissDyn, BONDDIM, KRAUSDIM; truncErr=truncErr, canForm=true
+                X_t,
+                hamDyn,
+                dissDyn,
+                BONDDIM,
+                KRAUSDIM;
+                truncErr=truncErr,
+                canForm=true, # orthonormalized X_t
             )
             @info "TEBD done for $(i)-th time step. Allocated memory: $(allocated_tebd/2^30) GB"
             flush(logFile)
 
-            # if i == nTimeSteps
-            #     @time allocated_corr = @allocated begin
-            #         for j = 2 : N
-            #             densDensCorrelation[j-1] = densDensCorr(j, X_t, numberOp);
-            #         end
-            #     end
-            #     @info "Density-Density Correlation calculated. Allocated memory: $(allocated_corr/2^30) GB"
-            # end
+            if i == nTimeSteps
+                @time allocated_corr = @allocated begin
+                    for j in 2:N
+                        densDensCorrelation[j - 1] = densDensCorr(j, X_t, numberOp)
+                    end
+                end
+                @info "Density-Density Correlation calculated. Allocated memory: $(allocated_corr/2^30) GB"
+            end
 
             @time allocated_sites = @allocated n_sites_t[i + 1, :], n_t[i + 1] = computeSiteExpVal!(
                 X_t, numberOp
@@ -121,9 +127,9 @@ function main(args)
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
 
-            @time allocated_entspec = @allocated ent_spec = computeEntSpec_cheap!(X_t) # mid-canonical
-            push!(entSpec_t, ent_spec)
-            @info "Entanglement Spectrum computed. Allocated memory: $(allocated_entspec/2^30) GB"
+            @time allocated_puriEnt = @allocated puriEnt = computePuriEntanglement!(X_t) # mid-canonical
+            push!(puriEnt_t, puriEnt)
+            @info "Entanglement of purification computed. Allocated memory: $(allocated_puriEnt/2^30) GB"
 
             # @time allocated_renyi = @allocated renyi_ent = compute2RenyiEntropy(X_t)
             # push!(renyiEnt_t, renyi_ent)
@@ -155,17 +161,17 @@ function main(args)
         serialize(file, ϵDTrunc_t)
     end
 
-    open(OUTPUT_PATH * FILE_INFO * "_ent_spec_t.dat", "w") do file
-        serialize(file, entSpec_t)
+    open(OUTPUT_PATH * FILE_INFO * "_puri_ent_t.dat", "w") do file
+        serialize(file, puriEnt_t)
     end
 
     # open(OUTPUT_PATH * FILE_INFO * "_renyiEnt_t.dat", "w") do file
     #     serialize(file, renyiEnt_t)
     # end
 
-    # open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file
-    #     serialize(file, densDensCorrelation)
-    # end
+    open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file
+        serialize(file, densDensCorrelation)
+    end
 
     return close(logFile)
 end

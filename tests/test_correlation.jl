@@ -14,25 +14,25 @@ J = 1.0
 corrs = []
 
 for g in gs
-    tfiMPO = constructTFIMPO(J, g, L);
+    tfiMPO = constructTFIMPO(J, g, L)
 
     # initialize MPS
-    initialMPS = initializeRandomMPS(L);
+    initialMPS = initializeRandomMPS(L)
 
     # run DMRG
-    gsMPS, gsEnergy = DMRG2(initialMPS, tfiMPO, bondDim = CHI, truncErr = 1e-10, convTolE = 1e-10, verbosePrint = true);
+    gsMPS, gsEnergy = DMRG2(
+        initialMPS, tfiMPO; bondDim=CHI, truncErr=1e-10, convTolE=1e-10, verbosePrint=true
+    )
     println("ground state energy per site E = $(gsEnergy/L)")
 
-    Sz = [+1 0 ; 0 -1];
-    Sz = TensorMap(Sz, ComplexSpace(2), ComplexSpace(2));
+    Sz = [+1 0; 0 -1]
+    Sz = TensorMap(Sz, ComplexSpace(2), ComplexSpace(2))
     @show computeExpVal1(gsMPS, Sz)
 
-    Sx = [0 +1 ; +1 0];
-    Sx = TensorMap(Sx, ComplexSpace(2), ComplexSpace(2));
+    Sx = [0 +1; +1 0]
+    Sx = TensorMap(Sx, ComplexSpace(2), ComplexSpace(2))
     @show computeExpVal1(gsMPS, Sx)
 
     # push!(corrs, computeCorr2!(gsMPS, Sz, 3, 9))
     @show computeCorr2!(gsMPS, Sz, 3, 9)
-
 end
-

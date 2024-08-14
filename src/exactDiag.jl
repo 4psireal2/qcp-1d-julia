@@ -4,7 +4,6 @@ using LinearAlgebra
 using LinearMaps
 using Arpack
 
-
 d = 2
 N = 5
 J = 1.0
@@ -42,13 +41,19 @@ H = reshape(H, 4, 4);
 H = TensorMap(H, ℂ^4, ℂ^4);
 # testOut = exactDiag(testState, H, N)
 
-
 # testState = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(d^N), ComplexSpace(1));
 # energy, state, _ = eigsolve(exactDiag, testState, 1, :SR)
-doApplyHamClosed = LinearMap(psiIn -> exactDiag(psiIn,H,N), d^N;
-  ismutating=false, issymmetric=true, ishermitian=true, isposdef=false)
+doApplyHamClosed = LinearMap(
+    psiIn -> exactDiag(psiIn, H, N),
+    d^N;
+    ismutating=false,
+    issymmetric=true,
+    ishermitian=true,
+    isposdef=false,
+)
 
-diagtime = @elapsed Energy, psi = Arpack.eigs(doApplyHamClosed; nev = 1,
-tol = 1e-12, which=:SR, maxiter = 300);
+diagtime = @elapsed Energy, psi = Arpack.eigs(
+    doApplyHamClosed; nev=1, tol=1e-10, which=:SR, maxiter=300
+);
 
 nothing
