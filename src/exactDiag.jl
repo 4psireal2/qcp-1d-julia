@@ -1,59 +1,68 @@
+"""
+Tested against  TenPy implementation
+https://tenpy.readthedocs.io/en/latest/toycode_stubs/tfi_exact.html
+"""
+
 using TensorKit
 using KrylovKit
 using LinearAlgebra
-using LinearMaps
-using Arpack
 
 d = 2
 N = 5
 J = 1.0
-g = 0.5
+g = 1.0
 
-function exactDiag(stateIn::TensorMap, op, N; d=2)::TensorMap
-    stateOut = TensorMap(zeros, ℂ^1 ⊗ ℂ^(d^N), ℂ^1)
+function applyH1(X::TensorMap, op::TensorMap)::TensorMap
+    @tensor X[-1 -2; -3] := X[-1, 1, -3] * op[-2, 1]
 
-    for i in 1:(N - 1)
-        spaceL = 1
-        spaceR = d^(N - i - 1)
-        if i > 1
-            spaceL = d^(i - 1)
-        elseif i == N - 1
-            spaceR = 1
-        end
-
-        stateTemp = reshape(stateIn, spaceL, d^2, spaceR)
-        stateTemp = TensorMap(stateTemp, ℂ^(spaceL) ⊗ ℂ^(d^2), ℂ^(spaceR))
-        @tensor stateTemp[-1 -2; -3] := stateTemp[-1, 1, -3] * op[-2, 1]
-        stateTemp = reshape(permutedims(convert(Array, stateTemp), [2, 1, 3]), d^N)
-        stateTemp = TensorMap(stateTemp, ℂ^1 ⊗ ℂ^(d^N), ℂ^1)
-        stateOut = stateOut + stateTemp
-    end
-    stateOut = reshape(convert(Array, stateOut), d^N, 1)
-    return stateOut
+    return X
 end
 
-testState = ones(2, 2, 2, 2, 2);
-Sx = [0 1; 1 0];
-Sz = [1 0; 0 -1];
-Id = [1 0; 0 1];
-H = -J * kron(Sz, Sz) + g * kron(Sx, Id);
-H = reshape(H, 4, 4);
-H = TensorMap(H, ℂ^4, ℂ^4);
-# testOut = exactDiag(testState, H, N)
+function findHSum(onSiteOp, interactOp, J, g, N; d=2, PBC=false)
+    if N >= 20
+        println("Oh no! You are too big for being diagonalized exactly...")
+    end
 
-# testState = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(d^N), ComplexSpace(1));
-# energy, state, _ = eigsolve(exactDiag, testState, 1, :SR)
-doApplyHamClosed = LinearMap(
-    psiIn -> exactDiag(psiIn, H, N),
-    d^N;
-    ismutating=false,
-    issymmetric=true,
-    ishermitian=true,
-    isposdef=false,
-)
+    iD = Matrix(1.0I, d, d)
+    identities = fill(iD, N)  # Create a vector filled with the identity matrix `iD` of length `L`
+    onSiteOpList = []
+    interactOpList = []
 
-diagtime = @elapsed Energy, psi = Arpack.eigs(
-    doApplyHamClosed; nev=1, tol=1e-10, which=:SR, maxiter=300
-);
+    for i in 1:N
+        onSiteOps = copy(identities)
+        onSiteOps[i] = onSiteOp
+        push!(onSiteOpList, reduce(kron, onSiteOps))
+
+        interactOps = copy(identities)
+        interactOps[i] = interactOp
+        push!(interactOpList, reduce(kron, interactOps))
+    end
+
+    H_onSite = zeros(d^N, d^N)
+    H_interact = zeros(d^N, d^N)
+
+    for i in 1:(N - 1)
+        if i == N - 1 && PBC
+            H_interact += interactOpList[i] * interactOpList[1] # last site = first site
+        else
+            H_interact += interactOpList[i] * interactOpList[i + 1]
+        end
+    end
+
+    for i in 1:N
+        H_onSite += onSiteOpList[i]
+    end
+
+    return -J * H_interact - g * H_onSite
+end
+
+hSum = findHSum(Sx, Sz, 1.0, 1.0, N; PBC=true)
+hSum = TensorMap(hSum, ComplexSpace(d^N), ComplexSpace(d^N))
+testState = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(d^N), ComplexSpace(1))
+testState / norm(testState)
+
+eigenVal, eigenVec = eigsolve(testState, 1, :SR, Lanczos(; tol=1e-10, maxiter=200)) do x
+    applyH1(x, hSum)
+end
 
 nothing
