@@ -206,3 +206,27 @@ function compute2SiteExpVal(Go, Ge, Lo, Le, oP2)
         ErrorException("Oops! Complex expectation value is found.")
     end
 end
+
+function computeCorrLen(Go, Ge, Lo, Le)
+    bondDim = dim(space(Lo, 1))
+
+    if bondDim > 100
+        println("Bond dimension is too large...")
+    end
+
+    @tensor LoGo[-1 -2; -3] := Go[-1, -2, 1] * Lo[1, -3]
+    @tensor LoGo[-1 -4; -2 -3] := LoGo[-1, 1, -2] * conj(LoGo[-3, 1, -4])
+
+    @tensor LeGe[-1 -2; -3] := Ge[-1, -2, 1] * Le[1, -3]
+    @tensor LeGe[-1 -4; -2 -3] := LeGe[-1, 1, -2] * conj(LeGe[-3, 1, -4])
+
+    @tensor transferOp[-1 -4; -2 -3] := LoGo[-1, 2, 1, -3] * LeGe[1, -4, -2, 2]
+
+    dimMat = dim(space(LoGo, 1)) * dim(space(LeGe, 1))
+    transferMat = real(reshape(convert(Array, transferOp), dimMat, dimMat))
+
+    eigvals, _ = eigsolve(transferMat, dimMat, 2, :LM)
+    corrLength = -2 / log(abs(eigvals[2] / eigvals[1]))
+
+    return corrLength
+end

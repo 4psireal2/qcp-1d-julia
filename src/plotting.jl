@@ -80,20 +80,24 @@ for i in eachindex(CHIS)
                 dt * (1:(nTimeSteps + 1)),
                 n_t_s[i, j, :];
                 label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
-                ls=(if i == 1
-                    :dashdot
-                elseif i == 2
-                    :dash
-                else
-                    :solid
-                end),
-                lc=(if OMEGA == 1.9
-                    colorPal[1]
-                elseif OMEGA == 5.7
-                    colorPal[2]
-                else
-                    colorPal[3]
-                end),
+                ls=(
+                    if i == 1
+                        :dashdot
+                    elseif i == 2
+                        :dash
+                    else
+                        :solid
+                    end
+                ),
+                lc=(
+                    if OMEGA == 1.9
+                        colorPal[1]
+                    elseif OMEGA == 5.7
+                        colorPal[2]
+                    else
+                        colorPal[3]
+                    end
+                ),
             )
         end
     end

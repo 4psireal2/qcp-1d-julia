@@ -50,6 +50,8 @@ Go, Lo, Ge, gaugeLOdd, gaugeROdd = orthonormalizeiMPS(
     gaugeROdd[-1, 1] * transferOpRBond2[1, 2] * gaugeROdd'[2, -2]
 @show transferOpRBond2
 
+@show computeCorrLen(Go, Ge, Lo, Le)
+
 # Test: iTEBD - TFI model
 # Ref: [https://tenpy.readthedocs.io/en/latest/toycodes/solution_3_dmrg.html#Infinite-DMRG]
 delta = 0.01;
@@ -107,6 +109,8 @@ let
     end
 end
 
+# correlation length for 2-site unit cell
+
 println("E_exact =  -1.063544409973372")
 println("m_lit   =  0.9646523684425512")
 
@@ -130,62 +134,62 @@ println("Check single-site canonical form after full time evolution")
 
 ### WARNING: Very unstable !!!
 # full time evolution with random initial state
-let
-    println("Time evolution with random initial state")
-    bondDim = 1
-    Go = TensorMap(
-        [0.5, 0.5], ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim)
-    )
-    Ge = TensorMap(
-        [0.5, 0.5], ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim)
-    )
-    Lo = TensorMap(ones, ComplexSpace(bondDim), ComplexSpace(bondDim))
-    Le = TensorMap(ones, ComplexSpace(bondDim), ComplexSpace(bondDim))
-    initGuess = Matrix(I, bondDim, bondDim) ./ bondDim
-    transferOpLBond1 = TensorMap(initGuess, ComplexSpace(bondDim), ComplexSpace(bondDim))
-    transferOpRBond2 = TensorMap(initGuess, ComplexSpace(bondDim), ComplexSpace(bondDim))
+# let
+#     println("Time evolution with random initial state")
+#     bondDim = 1
+#     Go = TensorMap(
+#         [0.5, 0.5], ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim)
+#     )
+#     Ge = TensorMap(
+#         [0.5, 0.5], ComplexSpace(bondDim) ⊗ ComplexSpace(d), ComplexSpace(bondDim)
+#     )
+#     Lo = TensorMap(ones, ComplexSpace(bondDim), ComplexSpace(bondDim))
+#     Le = TensorMap(ones, ComplexSpace(bondDim), ComplexSpace(bondDim))
+#     initGuess = Matrix(I, bondDim, bondDim) ./ bondDim
+#     transferOpLBond1 = TensorMap(initGuess, ComplexSpace(bondDim), ComplexSpace(bondDim))
+#     transferOpRBond2 = TensorMap(initGuess, ComplexSpace(bondDim), ComplexSpace(bondDim))
 
-    transferOpLBond1, transferOpLBond2 = leftContraction!(transferOpLBond1, Le, Go, Lo, Ge)
-    transferOpRBond2, transferOpRBond1 = rightContraction!(transferOpRBond2, Le, Go, Lo, Ge)
-    Ge, Le, Go, gaugeLEven, gaugeREven = orthonormalizeiMPS(
-        transferOpLBond1, transferOpRBond1, Lo, Ge, Le, Go
-    )
-    Go, Lo, Ge, gaugeLOdd, gaugeROdd = orthonormalizeiMPS(
-        transferOpLBond2, transferOpRBond2, Le, Go, Lo, Ge
-    )
+#     transferOpLBond1, transferOpLBond2 = leftContraction!(transferOpLBond1, Le, Go, Lo, Ge)
+#     transferOpRBond2, transferOpRBond1 = rightContraction!(transferOpRBond2, Le, Go, Lo, Ge)
+#     Ge, Le, Go, gaugeLEven, gaugeREven = orthonormalizeiMPS(
+#         transferOpLBond1, transferOpRBond1, Lo, Ge, Le, Go
+#     )
+#     Go, Lo, Ge, gaugeLOdd, gaugeROdd = orthonormalizeiMPS(
+#         transferOpLBond2, transferOpRBond2, Le, Go, Lo, Ge
+#     )
 
-    for i in 1:50
-        Go, Ge, Lo, Le = iTEBD!(Go, Ge, Lo, Le, expHo, expHe, 10)
+#     for i in 1:50
+#         Go, Ge, Lo, Le = iTEBD!(Go, Ge, Lo, Le, expHo, expHe, 10)
 
-        if mod(i, 1) == 0
-            @show i
-            initGuess = Matrix(I, dim(space(Lo, 1)), dim(space(Lo, 1))) ./ dim(space(Lo, 1))
-            transferOpLBond1 = TensorMap(initGuess, space(Lo, 1), space(Lo, 1))
+#         if mod(i, 1) == 0
+#             @show i
+#             initGuess = Matrix(I, dim(space(Lo, 1)), dim(space(Lo, 1))) ./ dim(space(Lo, 1))
+#             transferOpLBond1 = TensorMap(initGuess, space(Lo, 1), space(Lo, 1))
 
-            initGuess = Matrix(I, dim(space(Lo, 1)), dim(space(Lo, 1))) ./ dim(space(Lo, 1))
-            transferOpRBond2 = TensorMap(initGuess, space(Lo, 1), space(Lo, 1))
+#             initGuess = Matrix(I, dim(space(Lo, 1)), dim(space(Lo, 1))) ./ dim(space(Lo, 1))
+#             transferOpRBond2 = TensorMap(initGuess, space(Lo, 1), space(Lo, 1))
 
-            transferOpLBond1, transferOpLBond2 = leftContraction!(
-                transferOpLBond1, Le, Go, Lo, Ge
-            )
-            transferOpRBond2, transferOpRBond1 = rightContraction!(
-                transferOpRBond2, Le, Go, Lo, Ge
-            )
+#             transferOpLBond1, transferOpLBond2 = leftContraction!(
+#                 transferOpLBond1, Le, Go, Lo, Ge
+#             )
+#             transferOpRBond2, transferOpRBond1 = rightContraction!(
+#                 transferOpRBond2, Le, Go, Lo, Ge
+#             )
 
-            Ge, Le, Go, gaugeLEven, gaugeREven = orthonormalizeiMPS(
-                transferOpLBond1, transferOpRBond1, Lo, Ge, Le, Go
-            )
-            Go, Lo, Ge, gaugeLOdd, gaugeROdd = orthonormalizeiMPS(
-                transferOpLBond2, transferOpRBond2, Le, Go, Lo, Ge
-            )
+#             Ge, Le, Go, gaugeLEven, gaugeREven = orthonormalizeiMPS(
+#                 transferOpLBond1, transferOpRBond1, Lo, Ge, Le, Go
+#             )
+#             Go, Lo, Ge, gaugeLOdd, gaugeROdd = orthonormalizeiMPS(
+#                 transferOpLBond2, transferOpRBond2, Le, Go, Lo, Ge
+#             )
 
-            @show compute2SiteExpVal(Go, Ge, Lo, Le, H)
-            @show compute1SiteExpVal(Go, Ge, Lo, Le, Sz)
-        end
-    end
-end
+#             @show compute2SiteExpVal(Go, Ge, Lo, Le, H)
+#             @show compute1SiteExpVal(Go, Ge, Lo, Le, Sz)
+#         end
+#     end
+# end
 
-println("E_exact =  -1.063544409973372")
-println("m_lit   =  0.9646523684425512")
+# println("E_exact =  -1.063544409973372")
+# println("m_lit   =  0.9646523684425512")
 
 nothing
