@@ -383,18 +383,8 @@ end
 #     return S_phys + S_therm
 # end
 
-function computeEntEntropy!(X)
-    """
-    Ref:
-    1. TeNPY -> purification_mps.py
-    2. https://doi.org/10.1103/PhysRevB.98.235163
-    """
-    N = length(X)
-    indMid = N ÷ 2
-    X = orthonormalizeX!(X; orthoCenter=indMid)
-
-    boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
-    for i in 1:indMid
+function updateEnvL(index1, index2, X, boundaryL)
+    for i in index1:index2
         @tensor rho_i[-1 -5 -6; -2 -3 -4] := X[i][-1, 1, -2, -3] * conj(X[i][-4, 1, -5, -6])
         @tensor boundaryL[-4 -5 -6; -1 -2 -3] :=
             boundaryL[-4, 2, -1, 1] * rho_i[1, -5, -6, -2, -3, 2]
@@ -412,6 +402,47 @@ function computeEntEntropy!(X)
             boundaryL[1, 2, -2, 3, 4, -4] * fuserIn[3, 4, -3] * fuserOut[-1, 1, 2]
     end
 
+    return boundaryL
+end
+
+function updateEnvR(index1, index2, X, boundaryR)
+    """
+    index2 > index1
+    """
+    for i in index2:-1:index1
+        @tensor rho_i[-1 -5 -6; -2 -3 -4] := X[i][-1, 1, -2, -3] * conj(X[i][-4, 1, -5, -6])
+        @tensor boundaryR[-1 -5 -6; -2 -3 -4] :=
+            boundaryR[2, -6, -3, 4] * rho_i[-1, -5, 4, -2, 2, -4]
+
+        fuserIn = isometry(
+            space(boundaryR, 4)' * space(boundaryR, 5)',
+            fuse(space(boundaryR, 4) * space(boundaryR, 5)),
+        )
+        fuserOut = isometry(
+            fuse(space(boundaryR, 2) * space(boundaryR, 3)),
+            space(boundaryR, 2) * space(boundaryR, 3),
+        )
+
+        @tensor boundaryR[-2 -4; -1 -3] :=
+            boundaryR[-2, 3, 4, 1, 2, -3] * fuserIn[1, 2, -1] * fuserOut[-4, 3, 4]
+    end
+
+    return boundaryR
+end
+
+function computeEntEntropy!(X)
+    """
+    Ref:
+    1. TeNPY -> purification_mps.py
+    2. https://doi.org/10.1103/PhysRevB.98.235163
+    """
+    N = length(X)
+    indMid = N ÷ 2
+    X = orthonormalizeX!(X; orthoCenter=indMid)
+
+    boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
+    boundaryL = updateEnvL(1, indMid, X, boundaryL)
+
     boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
     boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
     @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
@@ -421,6 +452,54 @@ function computeEntEntropy!(X)
     eigvals = eigvals[eigvals .> 1e-30]
 
     return -sum(eigvals .* log.(eigvals))
+end
+
+function compute2RenyiEntropy!(X)
+    """
+    S_α = (1 - α)^(-1) . log(Tr(ρ^α))
+    """
+
+    N = length(X)
+    indL, indR = N ÷ 2, (N ÷ 2) + 1
+    X = orthonormalizeX!(X; orthoCenter=indL)
+
+    # compute S_α for the left-half
+    boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
+    boundaryL = updateEnvL(1, indL, X, boundaryL)
+
+    # compute S_α for the whole chain
+    envL = deepcopy(boundaryL)
+    envL = updateEnvL(indR, N, X, envL)
+    @show space(envL)
+    @tensor envL[-1; -2] := envL[-1, 1, -2, 1]
+    U, S, V, _ = tsvd(envL, (1,), (2,); alg=TensorKit.SVD())
+    S = diag(real(convert(Array, S)))
+    S = S[S .> 1e-30]
+    S_whole = (-1 / 2) * log(sum((S .^ 2)))
+
+    boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
+    boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
+    @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
+
+    U, S, V, _ = tsvd(boundaryL, (1,), (2,); alg=TensorKit.SVD())
+    S = diag(real(convert(Array, S)))
+    S = S[S .> 1e-30]
+    S_left = (-1 / 2) * log(sum((S .^ 2)))
+
+    # compute S_α for the right-half
+    X = orthonormalizeX!(X; orthoCenter=indR)
+    boundaryR = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
+    boundaryR = updateEnvR(indR, N, X, boundaryR)
+    boundaryL = Matrix(I, dim(space(boundaryR, 1)), dim(space(boundaryR, 1)))
+    boundaryL = TensorMap(boundaryL, space(boundaryR, 1), space(boundaryR, 1))
+    @tensor boundaryR[-1; -2] := boundaryR[1, -1, -2, 2] * boundaryL[2, 1]
+
+    U, S, V, _ = tsvd(boundaryR, (1,), (2,); alg=TensorKit.SVD())
+    S = diag(real(convert(Array, S)))
+    S = S[S .> 1e-30]
+    S_right = (-1 / 2) * log(sum((S .^ 2)))
+
+    return S_left + S_right - S_whole
 end
 
 function computevNEntropy(S)
