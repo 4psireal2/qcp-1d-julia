@@ -330,45 +330,97 @@ function densDensCorr(r::Int64, X, onSiteOp)
     return meanProduct - productMean
 end
 
-function computeEntSpec!(X)
-    """
-    Compute entanglement spectrum for the bipartion of LPTN chain at half length
-    """
+# function computeEntSpec!(X)
+#     """
+#     Compute entanglement spectrum for the bipartion of LPTN chain at half length
+#     """
 
+#     N = length(X)
+#     indL, indR = N ÷ 2, N ÷ 2 + 1
+#     X = orthonormalizeX!(X; orthoCenter=indL)
+
+#     @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] :=
+#         X[indL][-1, 1, -2, 2] *
+#         conj(X[indL][-3, 1, -4, 3]) *
+#         X[indR][2, 4, -5, -6] *
+#         conj(X[indR][3, 4, -7, -8])
+#     bondTensor /= norm(bondTensor)
+
+#     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8); alg=TensorKit.SVD())
+#     S = reshape(convert(Array, S), (dim(space(S)[1]), dim(space(S)[1])))
+
+#     return diag(S)
+# end
+
+# function computeEntEntropy!(X)
+#     """
+#     Compute entanglement spectrum for the bipartion of X chain at half length
+#     Ref: https://arxiv.org/abs/1303.3942
+#     """
+
+#     N = length(X)
+#     indL, indR = N ÷ 2, N ÷ 2 + 1
+#     X = orthonormalizeX!(X; orthoCenter=indL)
+
+#     @tensor bondTensor[-1 -2 -4; -3 -5 -6] :=
+#         X[indL][-1, -2, -3, 1] * X[indR][1, -4, -5, -6]
+#     bondTensor /= norm(bondTensor)
+
+#     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3), (4, 5, 6); alg=TensorKit.SVD())
+#     S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]))
+#     S = diag(S)
+#     S_phys = -sum((S .^ 2) .* (log2.(S .^ 2)))
+
+#     @tensor bondTensor[-1 -5 -6; -2 -3 -4] :=
+#         X[indL][-1, 1, -2, -3] * conj(X[indL][-4, 1, -5, -6])
+#     bondTensor /= norm(bondTensor)
+
+#     U, S, V, ϵ = tsvd(bondTensor, (1, 4, 5), (2, 3, 6); alg=TensorKit.SVD())
+#     S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]))
+#     S = diag(S)
+#     S_therm = -sum((S .^ 2) .* (log2.(S .^ 2)))
+
+#     return S_phys + S_therm
+# end
+
+function computeEntEntropy!(X)
+    """
+    Ref:
+    1. TeNPY -> purification_mps.py
+    2. https://doi.org/10.1103/PhysRevB.98.235163
+    """
     N = length(X)
-    indL, indR = N ÷ 2, N ÷ 2 + 1
-    X = orthonormalizeX!(X; orthoCenter=indL)
+    indMid = N ÷ 2
+    X = orthonormalizeX!(X; orthoCenter=indMid)
 
-    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] :=
-        X[indL][-1, 1, -2, 2] *
-        conj(X[indL][-3, 1, -4, 3]) *
-        X[indR][2, 4, -5, -6] *
-        conj(X[indR][3, 4, -7, -8])
-    bondTensor /= norm(bondTensor)
+    boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
+    for i in 1:indMid
+        @tensor rho_i[-1 -5 -6; -2 -3 -4] := X[i][-1, 1, -2, -3] * conj(X[i][-4, 1, -5, -6])
+        @tensor boundaryL[-4 -5 -6; -1 -2 -3] :=
+            boundaryL[-4, 2, -1, 1] * rho_i[1, -5, -6, -2, -3, 2]
 
-    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8); alg=TensorKit.SVD())
-    S = reshape(convert(Array, S), (dim(space(S)[1]), dim(space(S)[1])))
+        fuserIn = isometry(
+            space(boundaryL, 4)' * space(boundaryL, 5)',
+            fuse(space(boundaryL, 4) * space(boundaryL, 5)),
+        )
+        fuserOut = isometry(
+            fuse(space(boundaryL, 1) * space(boundaryL, 2)),
+            space(boundaryL, 1) * space(boundaryL, 2),
+        )
 
-    return diag(S)
-end
+        @tensor boundaryL[-1 -2; -3 -4] :=
+            boundaryL[1, 2, -2, 3, 4, -4] * fuserIn[3, 4, -3] * fuserOut[-1, 1, 2]
+    end
 
-function computeEntSpec_cheap!(X)
-    """
-    Compute entanglement spectrum for the bipartion of X chain at half length
-    """
+    boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
+    boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
+    @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
 
-    N = length(X)
-    indL, indR = N ÷ 2, N ÷ 2 + 1
-    X = orthonormalizeX!(X; orthoCenter=indL)
+    eigvals, _ = eig(boundaryL, (1,), (2,))
+    eigvals = diag(real(convert(Array, eigvals)))
+    eigvals = eigvals[eigvals .> 1e-30]
 
-    @tensor bondTensor[-1 -2 -4; -3 -5 -6] :=
-        X[indL][-1, -2, -3, 1] * X[indR][1, -4, -5, -6]
-    bondTensor /= norm(bondTensor)
-
-    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3), (4, 5, 6); alg=TensorKit.SVD())
-    S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]))
-
-    return diag(S)
+    return -sum(eigvals .* log.(eigvals))
 end
 
 function computevNEntropy(S)
