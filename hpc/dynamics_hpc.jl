@@ -79,7 +79,8 @@ function main(args)
     ϵHTrunc_t = Vector{Float64}[]
     ϵDTrunc_t = Vector{Float64}[]
     entEntropy_t = []
-    renyiEnt_t = [];
+    renyiMI_t = []
+    puriEnt_t =[]
     densDensCorrelation = Array{Float64}(undef, N - 1)
     n_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
@@ -131,9 +132,13 @@ function main(args)
             push!(entEntropy_t, entEntropy)
             @info "Entanglement entropy computed. Allocated memory: $(allocated_entEntropy/2^30) GB"
 
-            @time allocated_renyi = @allocated renyi_ent = compute2RenyiEntropy!(X_t)
-            push!(renyiEnt_t, renyi_ent)
-            @info "2-Renyi Entropy computed. Allocated memory: $(allocated_renyi/2^30) GB"
+            @time allocated_puriEnt = @allocated puriEnt = computePuriEntanglement!(X_t) # mid-canonical
+            push!(puriEnt_t, puriEnt)
+            @info "Entanglement of purification computed. Allocated memory: $(allocated_puriEnt/2^30) GB"
+
+            @time allocated_renyi = @allocated renyiMI = compute2RenyiMI!(X_t)
+            push!(renyiMI_t, renyiMI)
+            @info "2-Renyi mutual information computed. Allocated memory: $(allocated_renyi/2^30) GB"
 
             @info "Computation of properties done for $(i)-th time step"
             flush(logFile)
@@ -165,8 +170,12 @@ function main(args)
         serialize(file, entEntropy_t)
     end
 
-    open(OUTPUT_PATH * FILE_INFO * "_renyiEnt_t.dat", "w") do file
-        serialize(file, renyiEnt_t)
+    open(OUTPUT_PATH * FILE_INFO * "_puriEnt_t.dat", "w") do file
+        serialize(file, puriEnt_t)
+    end
+
+    open(OUTPUT_PATH * FILE_INFO * "_renyiMI_t.dat", "w") do file
+        serialize(file, renyiMI_t)
     end
 
     open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file

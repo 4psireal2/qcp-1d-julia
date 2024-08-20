@@ -446,6 +446,7 @@ function computeEntEntropy!(X)
     boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
     boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
     @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
+    boundaryL /= norm(boundaryL)
 
     eigvals, _ = eig(boundaryL, (1,), (2,))
     eigvals = diag(real(convert(Array, eigvals)))
@@ -454,7 +455,7 @@ function computeEntEntropy!(X)
     return -sum(eigvals .* log.(eigvals))
 end
 
-function compute2RenyiEntropy!(X)
+function compute2RenyiMI!(X)
     """
     S_α = (1 - α)^(-1) . log(Tr(ρ^α))
     """
@@ -470,8 +471,8 @@ function compute2RenyiEntropy!(X)
     # compute S_α for the whole chain
     envL = deepcopy(boundaryL)
     envL = updateEnvL(indR, N, X, envL)
-    @show space(envL)
     @tensor envL[-1; -2] := envL[-1, 1, -2, 1]
+    envL /= norm(envL)
     U, S, V, _ = tsvd(envL, (1,), (2,); alg=TensorKit.SVD())
     S = diag(real(convert(Array, S)))
     S = S[S .> 1e-30]
@@ -480,6 +481,7 @@ function compute2RenyiEntropy!(X)
     boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
     boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
     @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
+    boundaryL /= norm(boundaryL)
 
     U, S, V, _ = tsvd(boundaryL, (1,), (2,); alg=TensorKit.SVD())
     S = diag(real(convert(Array, S)))
@@ -493,6 +495,7 @@ function compute2RenyiEntropy!(X)
     boundaryL = Matrix(I, dim(space(boundaryR, 1)), dim(space(boundaryR, 1)))
     boundaryL = TensorMap(boundaryL, space(boundaryR, 1), space(boundaryR, 1))
     @tensor boundaryR[-1; -2] := boundaryR[1, -1, -2, 2] * boundaryL[2, 1]
+    boundaryR /= norm(boundaryR)
 
     U, S, V, _ = tsvd(boundaryR, (1,), (2,); alg=TensorKit.SVD())
     S = diag(real(convert(Array, S)))
