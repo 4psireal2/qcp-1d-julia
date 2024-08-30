@@ -68,8 +68,6 @@ H = -J * (Sz ⊗ Sz) + g * (Sx ⊗ Id);
 expHo = exp(-delta * H);
 expHe = exp(-delta * H);
 
-H_mat = reshape(convert(Array, expHo), 4, 4);
-
 # initial state of even and odd sites - maximally entangled state?
 Go = TensorMap([1, 0], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin up
 Ge = TensorMap([1, 0], ℂ^1 ⊗ ℂ^2, ℂ^1); # spin down

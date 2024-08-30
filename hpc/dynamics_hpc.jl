@@ -89,14 +89,17 @@ function main(args)
     # XInit = createXBasis(N, [fill(basis0, 4); [Vector{Int64}(basis1)]; fill(basis0, 5)]);
 
     n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp)
+    push!(entEntropy_t, computeEntEntropy!(XInit))
+    push!(puriEnt_t, computePuriEntanglement!(XInit))
+    push!(renyiMI_t, compute2RenyiMI!(XInit))
     XInit = orthonormalizeX!(XInit; orthoCenter=1)
 
     @info "Initial average number of particles: $(n_t[1])"
 
     @info "Running second-order TEBD..."
     elapsed_time = @elapsed begin
-        hamDyn = expHam(OMEGA, dt / 2)
-        dissDyn = expDiss(GAMMA, dt)
+        hamDyn = expCPHam(OMEGA, dt / 2)
+        dissDyn = expCPDiss(GAMMA, dt)
         X_t = XInit
         for i in 1:nTimeSteps
             @time allocated_tebd = @allocated X_t, ϵHTrunc, ϵDTrunc = TEBD(
@@ -181,6 +184,15 @@ function main(args)
     open(OUTPUT_PATH * FILE_INFO * "_dens_dens_corr.dat", "w") do file
         serialize(file, densDensCorrelation)
     end
+
+    # save final state
+    finalState = Vector{Dict}(undef, N);
+
+    for i = 1 : N
+        finalState[i] = convert(Dict, X_t[i]);
+    end
+    serialize(OUTPUT_PATH * FILE_INFO * "_finalState.dat", finalState)
+
 
     return close(logFile)
 end

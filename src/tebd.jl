@@ -334,3 +334,97 @@ function TEBD_test(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=
     X = orthonormalizeX!(X; orthoCenter=1)
     return X, ϵHTrunc, ϵDTrunc
 end
+
+function TEBD_noDiss!(X, expHL, expHo, expHe, expHR, bondDim; truncErr=1e-6, canForm=true)
+    """
+    2nd order TEBD for one time step
+
+    Returns:
+    - X_t: orthonormalized left-canonical MPO
+    - ϵHTrunc: truncation errors in bond dimension
+    - ϵDTrunc: truncation errors in Kraus dimension
+    """
+
+    ϵHTrunc = Vector{Float64}()
+    ϵDTrunc = Vector{Float64}()
+    N = length(X)
+
+    # sweep L ---> R [odd]
+    for i in 1:2:(N - 1)
+        gate = expHo
+        if i == 1
+            gate = expHL
+        elseif  i == N-1
+            gate = expHR 
+        end
+
+        U, S, V, ϵ = applyGate(X[i], X[i + 1], gate, bondDim, truncErr)
+        push!(ϵHTrunc, ϵ)
+
+        if canForm
+            # shift orthogonality center to right
+            if i == N - 1 && N % 2 == 0 # OC on the left for the last bond tensor of chain of even length 
+                X[i] = permute(permute(U, (1, 2, 3), (4,)) * S, (1, 2), (3, 4))
+                X[i + 1] = permute(V, (1, 2), (3, 4))
+            else
+                X[i] = permute(U, (1, 2), (3, 4))
+                X[i + 1] = permute(S * permute(V, (1,), (2, 3, 4)), (1, 2), (3, 4))
+            end
+
+            if (i < N - 1 && N % 2 == 1) || (i < N - 2 && N % 2 == 0)
+                Q, R = leftorth(X[i + 1], (1, 2, 3), (4,); alg=QRpos())
+                X[i + 1] = permute(Q, (1, 2), (3, 4))
+                X[i + 2] = permute(R * permute(X[i + 2], (1,), (2, 3, 4)), (1, 2), (3, 4))
+            end
+        else
+            X[i] = permute(permute(U, (1, 2, 3), (4,)) * sqrt(S), (1, 2), (3, 4))
+            X[i + 1] = permute(sqrt(S) * permute(V, (1,), (2, 3, 4)), (1, 2), (3, 4))
+        end
+    end
+
+    # sweep R ---> L [even]
+    for i in reverse(2:2:(N - 1))
+        gate = expHe
+        if i == N-1
+            gate = expHR 
+        end
+        U, S, V, ϵ = applyGate(X[i], X[i + 1], gate, bondDim, truncErr)
+        push!(ϵHTrunc, ϵ)
+
+        # shift orthogonality center to left
+        X[i + 1] = permute(V, (1, 2), (3, 4))
+        X[i] = permute(permute(U, (1, 2, 3), (4,)) * S, (1, 2), (3, 4))
+
+        if canForm
+            L, Q = rightorth(X[i], (1,), (2, 3, 4); alg=LQpos())
+            X[i - 1] = permute(permute(X[i - 1], (1, 2, 3), (4,)) * L, (1, 2), (3, 4))
+            X[i] = permute(Q, (1, 2), (3, 4))
+        end
+    end
+
+    # sweep L ---> R [odd]
+    for i in 1:2:(N - 1)
+        gate = expHo
+        if i == 1
+            gate = expHL
+        elseif  i == N-1
+            gate = expHR 
+        end
+        U, S, V, ϵ = applyGate(X[i], X[i + 1], gate, bondDim, truncErr)
+        push!(ϵHTrunc, ϵ)
+
+        X[i] = permute(U, (1, 2), (3, 4))
+        X[i + 1] = permute(S * permute(V, (1,), (2, 3, 4)), (1, 2), (3, 4))
+
+        if canForm
+            if (i < N - 1 && N % 2 == 1) || (i < N - 2 && N % 2 == 0)
+                Q, R = leftorth(X[i + 1], (1, 2, 3), (4,); alg=QRpos())
+                X[i + 1] = permute(Q, (1, 2), (3, 4))
+                X[i + 2] = permute(R * permute(X[i + 2], (1,), (2, 3, 4)), (1, 2), (3, 4))
+            end
+        end
+    end
+
+    X = orthonormalizeX!(X; orthoCenter=1)
+    return X, ϵHTrunc, ϵDTrunc
+end

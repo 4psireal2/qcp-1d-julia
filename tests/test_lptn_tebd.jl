@@ -23,13 +23,21 @@ numberOpR = kron(numberOp, Id);
 numberOpL = kron(Id, numberOp);
 numberOp = TensorMap(numberOp, ℂ^2, ℂ^2);
 
-function createXMixed1()
-    X = Vector{TensorMap}(undef, 1)
-    X[1] = TensorMap(
-        (1 / sqrt(2)) * [1 0; 0 1],
-        ComplexSpace(1) ⊗ ComplexSpace(2),
-        ComplexSpace(2) ⊗ ComplexSpace(1),
-    )
+function createXMaxMixed(N)
+    X = Vector{TensorMap}(undef, N)
+    tensorBase = zeros(ComplexF64, 1, 2, 2, 1)
+    tensorBase[:, :, 1, 1] = [1 0]
+    tensorBase[:, :, 2, 1] = [0 1]
+
+    for i = 1 : N
+        
+        X[i] = TensorMap(
+            # (1 / sqrt(2)) * [1 0; 0 1],
+            tensorBase,
+            ComplexSpace(1) ⊗ ComplexSpace(2),
+            ComplexSpace(2) ⊗ ComplexSpace(1),
+        )
+    end
 
     return X
 end
@@ -57,7 +65,7 @@ entSpec[entSpec .== 0] .= 1e-5;
 @show computevNEntropy(entSpec) # computevNEntropy(entSpec) = 4.605170852121907e-9
 
 ## A pure bipartite state is maximally entangled, if the reduced density matrix on either system is maximally mixed.
-XMixed = createXMixed1();
+XMixed = createXMaxMixed(1);
 @show computeNorm(XMixed) # computeNorm(XMixed) = 0.9999999999999998
 @show computePurity(XMixed) # computePurity(XMixed) = 0.49999999999999983
 
@@ -67,13 +75,13 @@ X = orthonormalizeX!(createXRand(N; krausDim=3, bondDim=5));
 @assert isapprox(computeNorm(X), 1.0)
 entSpec = computeEntSpec!(X);
 entSpec[entSpec .== 0] .= 1e-5;
-@show computevNEntropy(entSpec)
+# @show computevNEntropy(entSpec)
 @assert computevNEntropy(entSpec) > 0.0
 
 # check computeSiteExpVal
 X = orthonormalizeX!(X; orthoCenter=1);
-n_sites, n_t = computeSiteExpVal!(X, numberOp);
 n_sites_test, n_t_test = computeSiteExpVal_test(X, numberOp);
+n_sites, n_t = computeSiteExpVal!(X, numberOp);
 @show n_sites, n_t # (n_sites, n_t) = ([0.8252846747812805, 0.5223583450165035, 0.3780963432477222, 0.30331262756876676, 0.37488695865563026], 0.48078778985398074)
 @show n_sites_test, n_t_test # (n_sites_test, n_t_test) = ([0.8252846747812811, 0.5223583450165032, 0.3780963432477222, 0.3033126275687668, 0.3748869586556303], 0.48078778985398085)
 @assert isapprox(n_sites, n_sites_test)
@@ -97,7 +105,7 @@ diss = TensorMap(
     diss, ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)'
 );
 diss = exp(dt * diss);
-B = expDiss(GAMMA, dt);
+B = expCPDiss(GAMMA, dt);
 @tensor checkKrausOp[-1 -2; -3 -4] := B'[-1, -3, 1] * conj(B'[-2, -4, 1]);
 @show norm(checkKrausOp - diss) # norm(checkKrausOp - diss) = 1.5700924586837752e-16
 
@@ -107,8 +115,8 @@ B = expDiss(GAMMA, dt);
 # check w/ QR/LQ and w\ QR/LQ for 1 time step
 BONDDIM = 20;
 KRAUSDIM = 10;
-hamDyn = expHam(OMEGA, dt / 2);
-dissDyn = expDiss(GAMMA, dt);
+hamDyn = expCPHam(OMEGA, dt / 2);
+dissDyn = expCPDiss(GAMMA, dt);
 X_test = deepcopy(X);
 X_t_test, ϵHTrunc_test, ϵDTrunc_test = TEBD_test(
     X_test, hamDyn, dissDyn, BONDDIM, KRAUSDIM; truncErr=truncErr
@@ -123,5 +131,47 @@ n_sites_test, n_t_test = computeSiteExpVal_test(X_t_test, numberOp);
 @assert isapprox(n_t, n_t_test)
 @show maximum(ϵHTrunc_test), maximum(ϵDTrunc_test) # (maximum(ϵHTrunc_test), maximum(ϵDTrunc_test)) = (0.0011736754741027294, 9.237969111212845e-9)
 @show maximum(ϵHTrunc), maximum(ϵDTrunc) # (maximum(ϵHTrunc), maximum(ϵDTrunc)) = (0.0011736754741027316, 9.237969092182622e-9)
+
+
+# Test: TEBD - TFI model using LPTN Ansatz
+# Ref: [https://tenpy.readthedocs.io/en/latest/toycodes/solution_3_dmrg.html#Infinite-DMRG]
+N = 12
+delta = 0.01;
+nTimeSteps = 1000;
+
+J = 1.0
+g = 1.2;
+
+Sx = TensorMap([0 1; 1 0], ℂ^2, ℂ^2);
+Sz = TensorMap([1 0; 0 -1], ℂ^2, ℂ^2);
+Id = TensorMap([1 0; 0 1], ℂ^2, ℂ^2);
+HBulk = -J * (Sz ⊗ Sz) - g/2 * (Sx ⊗ Id + Id ⊗ Sx);
+HL = -J * (Sz ⊗ Sz) - g * Sx ⊗ Id - g/2 * Id ⊗ Sx;
+HR = -J * (Sz ⊗ Sz) - g/2 * Sx ⊗ Id - g * Id ⊗ Sx;
+
+expHo = exp(-delta/2 * HBulk);
+expHe = exp(-delta * HBulk);
+expHL = exp(-delta/2 * HL)
+if N%2 == 0
+    expHR = exp(-delta/2 * HR)
+else
+    expHR = exp(-delta * HR)
+end
+
+tfiMPO = constructTFIMPO(J, g, N)
+
+let 
+    XInit = createXMaxMixed(N)
+    for i in 1:nTimeSteps
+        X_t, ϵHTrunc, ϵDTrunc = TEBD_noDiss!(XInit, expHL, expHo, expHe, expHR, 15)
+
+        if mod(i, 100) == 0
+            @show computeSiteExpVal!(X_t, Sx)
+            X_t = orthonormalizeX!(X_t; orthoCenter=1)
+            @show computeEnergy!(X_t, tfiMPO)
+            X_t = orthonormalizeX!(X_t; orthoCenter=1)
+        end
+    end
+end
 
 nothing

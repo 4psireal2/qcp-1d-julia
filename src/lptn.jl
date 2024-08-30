@@ -214,6 +214,25 @@ function computeSiteExpVal!(X, onSiteOp)
     return expVals, sum(expVals) / N
 end
 
+function computeEnergy!(X, Hs)
+    """
+    Args:
+    - X : left-canonical MPO
+
+    Note! X becomes right-canonical 
+    """
+    N = length(X)
+    boundaryL = TensorMap(ones, ComplexSpace(1), ComplexSpace(1) ⊗ ComplexSpace(1))
+
+    for i in 1:N
+        @tensor boundaryL[-3; -1 -2] := boundaryL[6, 1, 4] * Hs[i][1, 2, 3, -1] * X[i][4, 5, 2, -2] * conj(X[i][6, 5, 3, -3])
+    end
+
+    boundaryR = TensorMap(ones, ComplexSpace(1) ⊗ ComplexSpace(1), ComplexSpace(1))
+    @tensor energy = boundaryL[3, 1, 2] * boundaryR[1, 2, 3]
+    return energy
+end
+
 function computeSiteExpVal_test(X, onSiteOp; leftCan=false)
     """
     The O(N^2) way
@@ -330,27 +349,27 @@ function densDensCorr(r::Int64, X, onSiteOp)
     return meanProduct - productMean
 end
 
-# function computeEntSpec!(X)
-#     """
-#     Compute entanglement spectrum for the bipartion of LPTN chain at half length
-#     """
+function computeEntSpec!(X)
+    """
+    Compute entanglement spectrum for the bipartion of LPTN chain at half length
+    """
 
-#     N = length(X)
-#     indL, indR = N ÷ 2, N ÷ 2 + 1
-#     X = orthonormalizeX!(X; orthoCenter=indL)
+    N = length(X)
+    indL, indR = N ÷ 2, N ÷ 2 + 1
+    X = orthonormalizeX!(X; orthoCenter=indL)
 
-#     @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] :=
-#         X[indL][-1, 1, -2, 2] *
-#         conj(X[indL][-3, 1, -4, 3]) *
-#         X[indR][2, 4, -5, -6] *
-#         conj(X[indR][3, 4, -7, -8])
-#     bondTensor /= norm(bondTensor)
+    @tensor bondTensor[-1 -3 -4 -7; -2 -5 -6 -8] :=
+        X[indL][-1, 1, -2, 2] *
+        conj(X[indL][-3, 1, -4, 3]) *
+        X[indR][2, 4, -5, -6] *
+        conj(X[indR][3, 4, -7, -8])
+    bondTensor /= norm(bondTensor)
 
-#     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8); alg=TensorKit.SVD())
-#     S = reshape(convert(Array, S), (dim(space(S)[1]), dim(space(S)[1])))
+    U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3, 5), (4, 6, 7, 8); alg=TensorKit.SVD())
+    S = reshape(convert(Array, S), (dim(space(S)[1]), dim(space(S)[1])))
 
-#     return diag(S)
-# end
+    return diag(S)
+end
 
 # function computeEntEntropy!(X)
 #     """
@@ -446,7 +465,6 @@ function computeEntEntropy!(X)
     boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
     boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
     @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
-    boundaryL /= norm(boundaryL)
 
     eigvals, _ = eig(boundaryL, (1,), (2,))
     eigvals = diag(real(convert(Array, eigvals)))
@@ -472,7 +490,6 @@ function compute2RenyiMI!(X)
     envL = deepcopy(boundaryL)
     envL = updateEnvL(indR, N, X, envL)
     @tensor envL[-1; -2] := envL[-1, 1, -2, 1]
-    envL /= norm(envL)
     U, S, V, _ = tsvd(envL, (1,), (2,); alg=TensorKit.SVD())
     S = diag(real(convert(Array, S)))
     S = S[S .> 1e-30]
@@ -481,7 +498,6 @@ function compute2RenyiMI!(X)
     boundaryR = Matrix(I, dim(space(boundaryL, 2)), dim(space(boundaryL, 2)))
     boundaryR = TensorMap(boundaryR, space(boundaryL, 2), space(boundaryL, 2))
     @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 2] * boundaryR[2, 1]
-    boundaryL /= norm(boundaryL)
 
     U, S, V, _ = tsvd(boundaryL, (1,), (2,); alg=TensorKit.SVD())
     S = diag(real(convert(Array, S)))
@@ -495,7 +511,6 @@ function compute2RenyiMI!(X)
     boundaryL = Matrix(I, dim(space(boundaryR, 1)), dim(space(boundaryR, 1)))
     boundaryL = TensorMap(boundaryL, space(boundaryR, 1), space(boundaryR, 1))
     @tensor boundaryR[-1; -2] := boundaryR[1, -1, -2, 2] * boundaryL[2, 1]
-    boundaryR /= norm(boundaryR)
 
     U, S, V, _ = tsvd(boundaryR, (1,), (2,); alg=TensorKit.SVD())
     S = diag(real(convert(Array, S)))
