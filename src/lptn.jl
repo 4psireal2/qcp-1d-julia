@@ -218,8 +218,6 @@ function computeEnergy!(X, Hs)
     """
     Args:
     - X : left-canonical MPO
-
-    Note! X becomes right-canonical 
     """
     N = length(X)
     boundaryL = TensorMap(ones, ComplexSpace(1), ComplexSpace(1) ⊗ ComplexSpace(1))
