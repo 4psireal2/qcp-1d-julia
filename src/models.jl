@@ -20,8 +20,8 @@ function expCPDiss(gamma, dt)
     numberOpL = kron(Id, numberOp)
 
     diss =
-        gamma * kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR -
-        (1 / 2) * numberOpL
+        gamma * (kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR -
+        (1 / 2) * numberOpL)
     diss = TensorMap(
         diss, ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)'
     )
@@ -99,8 +99,8 @@ function constructLindbladMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{
     annihilationOp = [0 1; 0 0]
 
     onSite =
-        gamma * kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR -
-        (1 / 2) * numberOpL
+        gamma * (kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR -
+        (1 / 2) * numberOpL)
 
     lindbladMPO = Vector{TensorMap}(undef, N)
 
