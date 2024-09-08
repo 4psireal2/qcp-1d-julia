@@ -1,4 +1,5 @@
 using Plots
+using Printf
 using ColorSchemes
 using Serialization
 using LaTeXStrings
@@ -13,9 +14,9 @@ colorPal = palette(:tab10)
 N = 5;
 nTimeSteps = 200;
 dt = 0.1; # 0.01 ≤ dt ≤ 0.1
-JOBID = 891933;
-CHI = 60; KRAUSDIM = 30;
-CHIS = [60, 80, 100]; KRAUSDIMS = [30, 40, 50]
+JOBID = 974625;
+CHI = 30; KRAUSDIM = 30;
+CHIS = [30, 50, 70]; KRAUSDIMS = [30, 50, 70]
 # CHIS = [100, 200, 300]; KRAUSDIMS = [50, 100, 150]
 
 OMEGAS = [0.0, 0.9, 1.9, 2.8, 3.8, 4.7, 5.7, 6.7, 7.6, 8.6, 9.5, 10.5];
@@ -33,392 +34,392 @@ FILE = "N_$(N)_dt_$(dt)_ntime_$(nTimeSteps)_$(JOBID)";
 ϵDTrunc_t = Any[];
 dens_corr_s = Any[];
 
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHI)_K_$(KRAUSDIM)_$(JOBID)"
+for (i, OMEGA) in enumerate(OMEGAS)
+    FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHI)_K_$(KRAUSDIM)_$(JOBID)"
 
-#     push!(ϵHTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_H_trunc_err_t.dat"))
-#     push!(ϵDTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_D_trunc_err_t.dat"))
-#     # push!(dens_corr_s, deserialize(RESULT_PATH * FILE_INFO * "_dens_dens_corr.dat"))
+    push!(ϵHTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_H_trunc_err_t.dat"))
+    push!(ϵDTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_D_trunc_err_t.dat"))
+    push!(dens_corr_s, deserialize(RESULT_PATH * FILE_INFO * "_dens_dens_corr.dat"))
 
-# end
+end
 
-# n_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
+n_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
 
-# ent_entropy_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
-# renyi_entropy_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
-# puri_ent_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
+ent_entropy_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
+renyi_entropy_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
+puri_ent_t_s = Array{Float64}(undef, length(CHIS), length(OMEGAS), nTimeSteps + 1);
 
-# n_qs_s = Array{Float64}(undef, length(CHIS), length(OMEGAS));
+n_qs_s = Array{Float64}(undef, length(CHIS), length(OMEGAS));
 
-# for i in eachindex(CHIS)
-#     for (j, OMEGA) in enumerate(OMEGAS)
-#         FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_$(JOBID)"
-#         n_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_n_t.dat")
-#         n_qs_s[i, j] = n_t_s[i, j, end]
+for i in eachindex(CHIS)
+    for (j, OMEGA) in enumerate(OMEGAS)
+        FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_$(JOBID)"
+        n_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_n_t.dat")
+        n_qs_s[i, j] = n_t_s[i, j, end]
 
-#         ent_entropy_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_ent_entropy_t.dat")
-#         renyi_entropy_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_renyiMI_t.dat")
-#         puri_ent_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_puriEnt_t.dat")
-#     end
-# end
+        ent_entropy_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_ent_entropy_t.dat")
+        renyi_entropy_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_renyiMI_t.dat")
+        puri_ent_t_s[i, j, :] = deserialize(RESULT_PATH * FILE_INFO * "_puriEnt_t.dat")
+    end
+end
 
-# # # n_qs
-# aplot = plot();
-# ytick_positions = [1.0, 0.1, 0.01]
-# ytick_labels = ["1.0", "0.1", "0.01"]
+# # n_qs
+aplot = plot();
+ytick_positions = [1.0, 0.1, 0.01]
+ytick_labels = ["1.0", "0.1", "0.01"]
 
-# for i in eachindex(CHIS)
-#     plot!(OMEGAS, n_qs_s[i, :]; label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))")
-# end
+for i in eachindex(CHIS)
+    plot!(OMEGAS, n_qs_s[i, :]; label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))")
+end
 
-# plot!(;
-#     xlabel=L"\Omega",
-#     ylabel=L"\textrm{n_{qs}}",
-#     title=L"N=%$N",
-#     legend=:topright,
-#     yformatter=:scientific,
-# )
-# savefig(aplot, OUTPUT_PATH * FILE * "_n_qs.pdf")
+plot!(;
+    xlabel=L"\Omega",
+    ylabel=L"\textrm{n_{qs}}",
+    title=L"N=%$N",
+    legend=:topright,
+    yformatter=:scientific,
+)
+savefig(aplot, OUTPUT_PATH * FILE * "_n_qs.pdf")
 
-# # n(t) for OMEGA = 1.9, 5.7, 10.5
-# aplot = plot();
-# ytick_positions = [1.0, 0.1, 0.01]
-# ytick_labels = ["1.0", "0.1", "0.01"]
-# for i in eachindex(CHIS)
-#     for (j, OMEGA) in enumerate(OMEGAS)
-#         if OMEGA in [1.9, 5.7, 10.5]
-#             plot!(
-#                 dt * (1:(nTimeSteps + 1)),
-#                 n_t_s[i, j, :];
-#                 label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
-#                 ls=(
-#                     if i == 1
-#                         :dashdot
-#                     elseif i == 2
-#                         :dash
-#                     else
-#                         :solid
-#                     end
-#                 ),
-#                 lc=(
-#                     if OMEGA == 1.9
-#                         colorPal[1]
-#                     elseif OMEGA == 5.7
-#                         colorPal[2]
-#                     else
-#                         colorPal[3]
-#                     end
-#                 ),
-#             )
-#         end
-#     end
-# end
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{n(t)}",
-#     title=L"N=%$N",
-#     legend=:bottomleft,
-#     xaxis=:log10,
-#     yaxis=:log10,
-#     yticks=(ytick_positions, ytick_labels),
-#     xformatter=(val) -> @sprintf("%.1f", val),
-#     yformatter=(val) -> @sprintf("%.2f", val),
-# )
-# savefig(aplot, OUTPUT_PATH * FILE * "_sub_crit_super_n(t).pdf")
+# n(t) for OMEGA = 1.9, 5.7, 10.5
+aplot = plot();
+ytick_positions = [1.0, 0.1, 0.01]
+ytick_labels = ["1.0", "0.1", "0.01"]
+for i in eachindex(CHIS)
+    for (j, OMEGA) in enumerate(OMEGAS)
+        if OMEGA in [1.9, 5.7, 10.5]
+            plot!(
+                dt * (1:(nTimeSteps + 1)),
+                n_t_s[i, j, :];
+                label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
+                ls=(
+                    if i == 1
+                        :dashdot
+                    elseif i == 2
+                        :dash
+                    else
+                        :solid
+                    end
+                ),
+                lc=(
+                    if OMEGA == 1.9
+                        colorPal[1] # blue
+                    elseif OMEGA == 5.7
+                        colorPal[2] # orange
+                    else
+                        colorPal[3] # green
+                    end
+                ),
+            )
+        end
+    end
+end
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{n(t)}",
+    title=L"N=%$N",
+    legend=:bottomleft,
+    xaxis=:log10,
+    yaxis=:log10,
+    yticks=(ytick_positions, ytick_labels),
+    xformatter=(val) -> @sprintf("%.1f", val),
+    yformatter=(val) -> @sprintf("%.2f", val),
+)
+savefig(aplot, OUTPUT_PATH * FILE * "_sub_crit_super_n(t).pdf")
 
-# # av(t)
-# aplot = plot();
-# ytick_positions = [1.0, 0.1, 0.01]
-# ytick_labels = ["1.0", "0.1", "0.01"]
-# index_CHI = findfirst(==(CHI), CHIS)
-# for (j, OMEGA) in enumerate(OMEGAS)
-#     plot!(dt * (1:(nTimeSteps + 1)), n_t_s[index_CHI, j, :]; label=L"\Omega = %$OMEGA")
-# end
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{n(t)}",
-#     title=L"\chi=%$CHI, \, K=%$KRAUSDIM, \, N=%$N",
-#     legend=:bottomleft,
-#     xaxis=:log10,
-#     yaxis=:log10,
-#     yticks=(ytick_positions, ytick_labels),
-#     xformatter=(val) -> @sprintf("%.1f", val),
-#     yformatter=(val) -> @sprintf("%.2f", val),
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_av_n(t).pdf")
+# av(t)
+aplot = plot();
+ytick_positions = [1.0, 0.1, 0.01]
+ytick_labels = ["1.0", "0.1", "0.01"]
+index_CHI = findfirst(==(CHI), CHIS)
+for (j, OMEGA) in enumerate(OMEGAS)
+    plot!(dt * (1:(nTimeSteps + 1)), n_t_s[index_CHI, j, :]; label=L"\Omega = %$OMEGA")
+end
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{n(t)}",
+    title=L"\chi=%$CHI, \, K=%$KRAUSDIM, \, N=%$N",
+    legend=:bottomleft,
+    xaxis=:log10,
+    yaxis=:log10,
+    yticks=(ytick_positions, ytick_labels),
+    xformatter=(val) -> @sprintf("%.1f", val),
+    yformatter=(val) -> @sprintf("%.2f", val),
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_av_n(t).pdf")
 
-# ## density-density correlation
-# aplot = plot();
+## density-density correlation
+aplot = plot();
 
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     plot!((2:N), dens_corr_s[i]; label=L"\Omega = %$OMEGA")
-# end
+for (i, OMEGA) in enumerate(OMEGAS)
+    plot!((2:N), dens_corr_s[i]; label=L"\Omega = %$OMEGA")
+end
 
-# plot!(;
-#     xlabel=L"r",
-#     ylabel=L"\textrm{C(r)}",
-#     title=L"N=%$N, \, \chi=%$CHI, \, K=%$KRAUSDIM",
-#     legend=:topright,
-#     # xaxis=:log10,
-#     # yaxis=:log10,
-#     yformatter=:scientific,
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_dens_dens_corr.pdf")
+plot!(;
+    xlabel=L"r",
+    ylabel=L"\textrm{C(r)}",
+    title=L"N=%$N, \, \chi=%$CHI, \, K=%$KRAUSDIM",
+    legend=:topright,
+    # xaxis=:log10,
+    # yaxis=:log10,
+    yformatter=:scientific,
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_dens_dens_corr.pdf")
 
-## ϵHTrunc
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵHTrunc_t_sum = [sum(x) for x in ϵHTrunc_t[i]]
-#     ϵHTrunc_t_max = [maximum(x) for x in ϵHTrunc_t[i]]
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵHTrunc_t_sum;
-#         label=L"\Omega = %$OMEGA, \, \textrm{sum. err.}",
-#     )
-#     # plot!(
-#     #     aplot,
-#     #     dt * (1:nTimeSteps),
-#     #     ϵHTrunc_t_max;
-#     #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
-#     # )
-# end
+# ϵHTrunc
+aplot = plot();
+for (i, OMEGA) in enumerate(OMEGAS)
+    ϵHTrunc_t_sum = [sum(x) for x in ϵHTrunc_t[i]]
+    ϵHTrunc_t_max = [maximum(x) for x in ϵHTrunc_t[i]]
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵHTrunc_t_sum;
+        label=L"\Omega = %$OMEGA, \, \textrm{sum. err.}",
+    )
+    # plot!(
+    #     aplot,
+    #     dt * (1:nTimeSteps),
+    #     ϵHTrunc_t_max;
+    #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
+    # )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Truncation~error~in~} \chi, \, \chi=%$CHI",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Truncation~error~in~} \chi, \, \chi=%$CHI",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_t.pdf")
 
-# ## cumulative ϵHTrunc accum.
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵHTrunc_t_sum = [sum(x) for x in ϵHTrunc_t[i]]
-#     ϵHTrunc_t_cumsum = cumsum(ϵHTrunc_t_sum) / (nTimeSteps * dt)
+## cumulative ϵHTrunc accum.
+aplot = plot();
+for (i, OMEGA) in enumerate(OMEGAS)
+    ϵHTrunc_t_sum = [sum(x) for x in ϵHTrunc_t[i]]
+    ϵHTrunc_t_cumsum = cumsum(ϵHTrunc_t_sum) / (nTimeSteps * dt)
 
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵHTrunc_t_cumsum;
-#         label=L"\Omega = %$OMEGA, \, \textrm{acc. err.}",
-#     )
-# end
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵHTrunc_t_cumsum;
+        label=L"\Omega = %$OMEGA, \, \textrm{acc. err.}",
+    )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Cumulative~truncation~error~in~} \chi, \, \chi=%$CHI",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_cumsum_sum_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Cumulative~truncation~error~in~} \chi, \, \chi=%$CHI",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_cumsum_sum_t.pdf")
 
-# ## cumulative ϵHTrunc max
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵHTrunc_t_max = [maximum(x) for x in ϵHTrunc_t[i]]
-#     ϵHTrunc_t_cumsum_max = cumsum(ϵHTrunc_t_max) / (nTimeSteps * dt)
+## cumulative ϵHTrunc max
+aplot = plot();
+for (i, OMEGA) in enumerate(OMEGAS)
+    ϵHTrunc_t_max = [maximum(x) for x in ϵHTrunc_t[i]]
+    ϵHTrunc_t_cumsum_max = cumsum(ϵHTrunc_t_max) / (nTimeSteps * dt)
 
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵHTrunc_t_cumsum_max;
-#         label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
-#     )
-# end
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵHTrunc_t_cumsum_max;
+        label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
+    )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Cumulative~truncation~error~in~} \chi, \, \chi=%$CHI",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_cumsum_sum_max_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Cumulative~truncation~error~in~} \chi, \, \chi=%$CHI",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_cumsum_sum_max_t.pdf")
 
-## ϵDTrunc
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵDTrunc_t_sum = [sum(x) for x in ϵDTrunc_t[i]]
-#     ϵDTrunc_t_max = [maximum(x) for x in ϵDTrunc_t[i]]
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵDTrunc_t_sum;
-#         label=L"\Omega = %$OMEGA, \, \textrm{sum. err.}",
-#     )
-#     # plot!(
-#     #     aplot,
-#     #     dt * (1:nTimeSteps),
-#     #     ϵDTrunc_t_max;
-#     #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
-#     # )
-# end
+# ϵDTrunc
+aplot = plot();
+for (i, OMEGA) in enumerate(OMEGAS)
+    ϵDTrunc_t_sum = [sum(x) for x in ϵDTrunc_t[i]]
+    ϵDTrunc_t_max = [maximum(x) for x in ϵDTrunc_t[i]]
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵDTrunc_t_sum;
+        label=L"\Omega = %$OMEGA, \, \textrm{sum. err.}",
+    )
+    # plot!(
+    #     aplot,
+    #     dt * (1:nTimeSteps),
+    #     ϵDTrunc_t_max;
+    #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
+    # )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Truncation~error~in~} K, \, K=%$KRAUSDIM",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Truncation~error~in~} K, \, K=%$KRAUSDIM",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_t.pdf")
 
-# ## cumulative ϵDTrunc accum.
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵDTrunc_t_sum = [sum(x) for x in ϵDTrunc_t[i]]
-#     ϵDTrunc_t_cumsum = cumsum(ϵDTrunc_t_sum) / (nTimeSteps * dt)
+## cumulative ϵDTrunc accum.
+aplot = plot();
+for (i, OMEGA) in enumerate(OMEGAS)
+    ϵDTrunc_t_sum = [sum(x) for x in ϵDTrunc_t[i]]
+    ϵDTrunc_t_cumsum = cumsum(ϵDTrunc_t_sum) / (nTimeSteps * dt)
 
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵDTrunc_t_cumsum;
-#         label=L"\Omega = %$OMEGA, \, \textrm{acc. err.}",
-#     )
-# end
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵDTrunc_t_cumsum;
+        label=L"\Omega = %$OMEGA, \, \textrm{acc. err.}",
+    )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Cumulative~truncation~error~in~} K, \, K=%$KRAUSDIM",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_cumsum_sum_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Cumulative~truncation~error~in~} K, \, K=%$KRAUSDIM",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_cumsum_sum_t.pdf")
 
-# ## cumulative ϵDTrunc max
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵDTrunc_t_max = [maximum(x) for x in ϵDTrunc_t[i]]
-#     ϵDTrunc_t_cumsum_max = cumsum(ϵDTrunc_t_max) / (nTimeSteps * dt)
+## cumulative ϵDTrunc max
+aplot = plot();
+for (i, OMEGA) in enumerate(OMEGAS)
+    ϵDTrunc_t_max = [maximum(x) for x in ϵDTrunc_t[i]]
+    ϵDTrunc_t_cumsum_max = cumsum(ϵDTrunc_t_max) / (nTimeSteps * dt)
 
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵDTrunc_t_cumsum_max;
-#         label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
-#     )
-# end
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵDTrunc_t_cumsum_max;
+        label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
+    )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Cumulative~truncation~error~in~} K, \, K=%$KRAUSDIM",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_cumsum_sum_max_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Cumulative~truncation~error~in~} K, \, K=%$KRAUSDIM",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_cumsum_sum_max_t.pdf")
 
-## entanglement entropy
-# aplot = plot();
-# for i in eachindex(CHIS)
-#     for (j, OMEGA) in enumerate(OMEGAS)
-#         if OMEGA in [1.9, 5.7, 10.5]
-#             plot!(
-#                 dt * (1:nTimeSteps + 1),
-#                 ent_entropy_t_s[i, j, :];
-#                 label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
-#                 ls=(
-#                     if i == 1
-#                         :dashdot
-#                     elseif i == 2
-#                         :dash
-#                     else
-#                         :solid
-#                     end
-#                 ),
-#                 lc=(
-#                     if OMEGA == 1.9
-#                         colorPal[1]
-#                     elseif OMEGA == 5.7
-#                         colorPal[2]
-#                     else
-#                         colorPal[3]
-#                     end
-#                 ),
-#             )
-#         end
-#     end
-# end
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Bipartite~entanglement~(von~Neumann)~entropy}",
-#     title=L"N=%$N",
-#     legend=:topright
-# )
-# savefig(aplot, OUTPUT_PATH * FILE * "_vnEnt_t.pdf")
+# entanglement entropy
+aplot = plot();
+for i in eachindex(CHIS)
+    for (j, OMEGA) in enumerate(OMEGAS)
+        if OMEGA in [1.9, 5.7, 10.5]
+            plot!(
+                dt * (1:nTimeSteps + 1),
+                ent_entropy_t_s[i, j, :];
+                label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
+                ls=(
+                    if i == 1
+                        :dashdot
+                    elseif i == 2
+                        :dash
+                    else
+                        :solid
+                    end
+                ),
+                lc=(
+                    if OMEGA == 1.9
+                        colorPal[1]
+                    elseif OMEGA == 5.7
+                        colorPal[2]
+                    else
+                        colorPal[3]
+                    end
+                ),
+            )
+        end
+    end
+end
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Bipartite~entanglement~(von~Neumann)~entropy}",
+    title=L"N=%$N",
+    legend=:topright
+)
+savefig(aplot, OUTPUT_PATH * FILE * "_vnEnt_t.pdf")
 
-# ## 2-Renyi entropy
-# aplot = plot();
-# for i in eachindex(CHIS)
-#     for (j, OMEGA) in enumerate(OMEGAS)
-#         if OMEGA in [1.9, 5.7, 10.5]
-#             plot!(
-#                 dt * (1:nTimeSteps + 1),
-#                 renyi_entropy_t_s[i, j, :];
-#                 label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
-#                 ls=(
-#                     if i == 1
-#                         :dashdot
-#                     elseif i == 2
-#                         :dash
-#                     else
-#                         :solid
-#                     end
-#                 ),
-#                 lc=(
-#                     if OMEGA == 1.9
-#                         colorPal[1]
-#                     elseif OMEGA == 5.7
-#                         colorPal[2]
-#                     else
-#                         colorPal[3]
-#                     end
-#                 ),
-#             )
-#         end
-#     end
-# end
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Bipartite~2-Rényi~Mutual~Information}",
-#     title=L"N=%$N",
-#     legend=:topright
-# )
-# savefig(aplot, OUTPUT_PATH * FILE * "_renyiMI_t.pdf")
+## 2-Renyi entropy
+aplot = plot();
+for i in eachindex(CHIS)
+    for (j, OMEGA) in enumerate(OMEGAS)
+        if OMEGA in [1.9, 5.7, 10.5]
+            plot!(
+                dt * (1:nTimeSteps + 1),
+                renyi_entropy_t_s[i, j, :];
+                label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
+                ls=(
+                    if i == 1
+                        :dashdot
+                    elseif i == 2
+                        :dash
+                    else
+                        :solid
+                    end
+                ),
+                lc=(
+                    if OMEGA == 1.9
+                        colorPal[1]
+                    elseif OMEGA == 5.7
+                        colorPal[2]
+                    else
+                        colorPal[3]
+                    end
+                ),
+            )
+        end
+    end
+end
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Bipartite~2-Rényi~Mutual~Information}",
+    title=L"N=%$N",
+    legend=:topright
+)
+savefig(aplot, OUTPUT_PATH * FILE * "_renyiMI_t.pdf")
 
 
-# # entanglement of purfication
-# aplot = plot();
-# for i in eachindex(CHIS)
-#     for (j, OMEGA) in enumerate(OMEGAS)
-#         if OMEGA in [1.9, 5.7, 10.5]
-#             plot!(
-#                 dt * (1:nTimeSteps + 1),
-#                 puri_ent_t_s[i, j, :];
-#                 label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
-#                 ls=(
-#                     if i == 1
-#                         :dashdot
-#                     elseif i == 2
-#                         :dash
-#                     else
-#                         :solid
-#                     end
-#                 ),
-#                 lc=(
-#                     if OMEGA == 1.9
-#                         colorPal[1]
-#                     elseif OMEGA == 5.7
-#                         colorPal[2]
-#                     else
-#                         colorPal[3]
-#                     end
-#                 ),
-#             )
-#         end
-#     end
-# end
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Entanglement~of~purfication}",
-#     title=L"N=%$N",
-#     legend=:topright,
-#     legendfontsize=5
-# )
-# savefig(aplot, OUTPUT_PATH * FILE * "_puriEnt_t.pdf")
+# entanglement of purfication
+aplot = plot();
+for i in eachindex(CHIS)
+    for (j, OMEGA) in enumerate(OMEGAS)
+        if OMEGA in [1.9, 5.7, 10.5]
+            plot!(
+                dt * (1:nTimeSteps + 1),
+                puri_ent_t_s[i, j, :];
+                label=L"(\chi, \, K) = (%$(CHIS[i]), %$(KRAUSDIMS[i]))",
+                ls=(
+                    if i == 1
+                        :dashdot
+                    elseif i == 2
+                        :dash
+                    else
+                        :solid
+                    end
+                ),
+                lc=(
+                    if OMEGA == 1.9
+                        colorPal[1]
+                    elseif OMEGA == 5.7
+                        colorPal[2]
+                    else
+                        colorPal[3]
+                    end
+                ),
+            )
+        end
+    end
+end
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Entanglement~of~purfication}",
+    title=L"N=%$N",
+    legend=:topright,
+    legendfontsize=5
+)
+savefig(aplot, OUTPUT_PATH * FILE * "_puriEnt_t.pdf")
 
 
 
@@ -439,33 +440,33 @@ dens_corr_s = Any[];
 
 
 # plot final state
-finalStates = Array{Any}(undef, length(CHIS), 3);
-PATH_TO_SCIKIT_TT = "/home/psireal42/study/qcp-1d-julia/for_scikittt/"
-for i in eachindex(CHIS)
-    global index = 1
+# finalStates = Array{Any}(undef, length(CHIS), 3);
+# PATH_TO_SCIKIT_TT = "/home/psireal42/study/qcp-1d-julia/for_scikittt/"
+# for i in eachindex(CHIS)
+#     global index = 1
 
-    for (j, OMEGA) in enumerate(OMEGAS)
-        if OMEGA in [1.9, 5.7, 10.5]
-            FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_$(JOBID)_finalState.dat"
-            finalStateLoad = deserialize(RESULT_PATH * FILE_INFO)
-            finalState = Vector{TensorMap}(undef, N)
+#     for (j, OMEGA) in enumerate(OMEGAS)
+#         if OMEGA in [1.9, 5.7, 10.5]
+#             FILE_INFO = "N_$(N)_OMEGA_$(OMEGA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_$(JOBID)_finalState.dat"
+#             finalStateLoad = deserialize(RESULT_PATH * FILE_INFO)
+#             finalState = Vector{TensorMap}(undef, N)
 
-            for k = 1 : N
-                finalState[k] = convert(TensorMap, finalStateLoad[k])
-                finalState_k_Arr = convert(Array, finalState[k])
-                @show OMEGA
-                @show CHIS[i], KRAUSDIMS[i]
-                @show k
-                @show size(finalState_k_Arr)
-                # serialize(PATH_TO_SCIKIT_TT * "N_$(N)_OMEGA_$(OMEGA)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_index_$k.dat", finalState_k_Arr)
-                npzwrite(PATH_TO_SCIKIT_TT * "N_$(N)_OMEGA_$(OMEGA)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_index_$k.npy", finalState_k_Arr)
-            end
+#             for k = 1 : N
+#                 finalState[k] = convert(TensorMap, finalStateLoad[k])
+#                 finalState_k_Arr = convert(Array, finalState[k])
+#                 @show OMEGA
+#                 @show CHIS[i], KRAUSDIMS[i]
+#                 @show k
+#                 @show size(finalState_k_Arr)
+#                 # serialize(PATH_TO_SCIKIT_TT * "N_$(N)_OMEGA_$(OMEGA)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_index_$k.dat", finalState_k_Arr)
+#                 npzwrite(PATH_TO_SCIKIT_TT * "N_$(N)_OMEGA_$(OMEGA)_CHI_$(CHIS[i])_K_$(KRAUSDIMS[i])_index_$k.npy", finalState_k_Arr)
+#             end
 
-            finalStates[i, index] = finalState
-            index += 1
-        end
-    end
-end
+#             finalStates[i, index] = finalState
+#             index += 1
+#         end
+#     end
+# end
 
 
 # finalMatrices_CHI_1 = Array{Any}(undef, 3)

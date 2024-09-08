@@ -2,7 +2,7 @@ using LinearAlgebra
 using TensorKit
 
 function expCPHam(omega, dt)
-    sigmaX = 0.5 * [0 +1; +1 0]
+    sigmaX = [0 +1; +1 0]
     numberOp = [0 0; 0 1]
     ham = omega * (kron(sigmaX, numberOp) + kron(numberOp, sigmaX))
 
