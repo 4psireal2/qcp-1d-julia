@@ -1,5 +1,5 @@
 """
-Dynamical simulations of QCP for short chain N = 11
+Dynamical simulations of QCP
 """
 
 using Pkg
