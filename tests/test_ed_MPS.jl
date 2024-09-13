@@ -8,7 +8,7 @@ using KrylovKit
 using LinearAlgebra
 
 d = 2
-N = 5
+N = 3
 J = 1.0
 g = 1.0
 
@@ -56,7 +56,10 @@ function findHSum(onSiteOp, interactOp, J, g, N; d=2, PBC=false)
     return -J * H_interact - g * H_onSite
 end
 
-hSum = findHSum(Sx, Sz, 1.0, 1.0, N; PBC=true)
+Sx = [0 1; 1 0];
+Sz = [1 0; 0 -1];
+
+hSum = findHSum(Sx, Sz, J, g, N; PBC=false)
 hSum = TensorMap(hSum, ComplexSpace(d^N), ComplexSpace(d^N))
 testState = TensorMap(randn, ComplexSpace(1) ⊗ ComplexSpace(d^N), ComplexSpace(1))
 testState / norm(testState)

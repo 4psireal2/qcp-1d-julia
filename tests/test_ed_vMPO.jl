@@ -26,7 +26,7 @@ numberOp = [0 0; 0 1];
 numberOp = TensorMap(numberOp, ℂ^2, ℂ^2);
 
 
-liouvSupOp = constructLindbladMPO(OMEGA, GAMMA, N)
+liouvSupOp = constructLiouvMPO(OMEGA, GAMMA, N)
 boundaryL = TensorMap(ones, one(ComplexSpace()), ComplexSpace(1))
 boundaryR = TensorMap(ones, ComplexSpace(1), one(ComplexSpace()))
 @tensor liouvSupOp[-1 -2 -3 -4 -5 -6; -7 -8 -9 -10 -11 -12] :=

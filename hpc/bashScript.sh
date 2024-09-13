@@ -19,7 +19,7 @@
 #SBATCH --cpus-per-task=16
 
 # memory per CPU in MB (see also --mem)
-#SBATCH --mem-per-cpu=4096
+#SBATCH --mem-per-cpu=20096
 
 # file to which standard output will be written (%A --> jobID, %a --> arrayID)
 #SBATCH --output=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.out
@@ -50,7 +50,7 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 
 # simulation parameter
-N=5
+N=8
 # N=10
 # N=20
 
@@ -64,16 +64,16 @@ OMEGA_INDEX=$((SLURM_ARRAY_TASK_ID / 3))
 OMEGA=${OMEGAS[OMEGA_INDEX]}
 # OMEGA=6.0
 
-BONDDIMS=(30 50 70)
-KRAUSDIMS=(30 50 70)
+# BONDDIMS=(30 50 70)
+# KRAUSDIMS=(30 50 70)
 # BONDDIMS=(25 50)
 # KRAUSDIMS=(15 25)
 # BONDDIMS=(400 50)
 # KRAUSDIMS=(15 25)
 # BONDDIMS=(50 60 70)
 # KRAUSDIMS=(25 30 35)
-# BONDDIMS=(100 150 200)
-# KRAUSDIMS=(100 150 200)
+BONDDIMS=(80 90 100)
+KRAUSDIMS=(80 90 100)
 # BONDDIMS=(400 450 500)
 # KRAUSDIMS=(200 225 250)
 # BONDDIM=150

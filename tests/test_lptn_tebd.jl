@@ -133,7 +133,7 @@ n_sites_test, n_t_test = computeSiteExpVal_test(X_t_test, numberOp);
 @show maximum(ϵHTrunc), maximum(ϵDTrunc) # (maximum(ϵHTrunc), maximum(ϵDTrunc)) = (0.0011736754741027316, 9.237969092182622e-9)
 
 
-# Test: TEBD - TFI model using LPTN Ansatz
+# Test: TEBD - TFI model using LPTN Ansatz for thermal state of closed dynamics
 # Ref: [https://tenpy.readthedocs.io/en/latest/toycodes/solution_3_dmrg.html#Infinite-DMRG]
 N = 12
 delta = 0.01;
@@ -166,9 +166,9 @@ let
         X_t, ϵHTrunc, ϵDTrunc = TEBD_noDiss!(XInit, expHL, expHo, expHe, expHR, 15)
 
         if mod(i, 100) == 0
-            @show computeSiteExpVal!(X_t, Sx)
+            @show computeSiteExpVal!(X_t, Sx) # magnetization in X = 0.81887
             X_t = orthonormalizeX!(X_t; orthoCenter=1)
-            @show computeEnergy!(X_t, tfiMPO)
+            @show computeEnergy!(X_t, tfiMPO) # -16.7865402285887
             X_t = orthonormalizeX!(X_t; orthoCenter=1)
         end
     end

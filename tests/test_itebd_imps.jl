@@ -107,8 +107,6 @@ let
     end
 end
 
-# correlation length for 2-site unit cell
-
 println("E_exact =  -1.063544409973372")
 println("m_lit   =  0.9646523684425512")
 

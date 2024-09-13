@@ -22,5 +22,6 @@
     add <package>
 ```
 
-## Implemented tests
-- 
+## Implemented tests for finite-size simulations
+[x] Finite-T states for TFI model (infinite-T state -> imaginary time evolution f with TEBD to get ground state) >< DMRG code of TeNPy
+[x] TEBD + LPTN for QCP model >< ED (single-site observable)

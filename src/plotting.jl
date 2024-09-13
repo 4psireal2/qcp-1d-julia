@@ -14,7 +14,7 @@ colorPal = palette(:tab10)
 N = 5;
 nTimeSteps = 200;
 dt = 0.1; # 0.01 ≤ dt ≤ 0.1
-JOBID = 974625;
+JOBID = 1004846;
 CHI = 30; KRAUSDIM = 30;
 CHIS = [30, 50, 70]; KRAUSDIMS = [30, 50, 70]
 # CHIS = [100, 200, 300]; KRAUSDIMS = [50, 100, 150]
