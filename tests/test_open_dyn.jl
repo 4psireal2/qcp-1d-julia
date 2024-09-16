@@ -34,7 +34,7 @@ function main(args)
         arg_type = Int
 
         "--DELTA"
-        help = "Branching rate"
+        help = "Sz interaction rate"
         arg_type = Float64
 
         "--BONDDIM"
@@ -108,7 +108,7 @@ function main(args)
             flush(logFile)
 
 
-            @time allocated_sites = @allocated Sz_sites_t[1, :], Sz_t[1] = computeSiteExpVal!(X_t, Sz) # right-canonical
+            @time allocated_sites = @allocated Sz_sites_t[i + 1, :], Sz_t[i + 1] = computeSiteExpVal!(X_t, Sz) # right-canonical
             @info "Site Expectation Value computed. Allocated memory: $(allocated_sites/2^30) GB"
 
             push!(ϵHTrunc_t, ϵHTrunc)
@@ -125,11 +125,11 @@ function main(args)
     @info "Saving data..."
 
     open(OUTPUT_PATH * FILE_INFO * "_Sz_sites_t.dat", "w") do file
-        serialize(file, n_sites_t)
+        serialize(file, Sz_sites_t)
     end
 
     open(OUTPUT_PATH * FILE_INFO * "_Sz_t.dat", "w") do file
-        serialize(file, n_t)
+        serialize(file, Sz_t)
     end
 
     open(OUTPUT_PATH * FILE_INFO * "_H_trunc_err_t.dat", "w") do file
@@ -140,7 +140,7 @@ function main(args)
         serialize(file, ϵDTrunc_t)
     end
 
-    
+
     return close(logFile)
 end
 

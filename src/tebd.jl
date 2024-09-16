@@ -156,7 +156,7 @@ end
 
 function TEBD_boundary(X, uniOp, krausOpL, krausOpR, bondDim, krausDim; truncErr=1e-6, canForm=true)
     """
-    2nd order TEBD with boundary dissipative layer for one time step
+    2nd order TEBD with boundary non-unitary layer for one time step
 
     Returns:
     - X_t: orthonormalized left-canonical MPO

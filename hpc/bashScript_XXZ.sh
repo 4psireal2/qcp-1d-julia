@@ -22,7 +22,7 @@
 #SBATCH --mem-per-cpu=16384
 
 # file to which standard output will be written (%A --> jobID, %a --> arrayID)
-#SBATCH --output=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.out
+#SBATCH --output=/scratch/nguyed99/qcp-1d-julia/logging/xxz_dyn_%A_%a.out
 
 # file to which standard errors will be written (%A --> jobID, %a --> arrayID)
 #SBATCH --error=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.err
@@ -61,7 +61,7 @@ BONDDIM=60
 KRAUSDIM=60
 
 dt=0.1
-nt=200
+nt=500
 
 # paths and file names
 timestamp=$(date +'%Y-%m-%d-%H-%M-%S')
@@ -72,7 +72,7 @@ LOG_PATH="/scratch/nguyed99/qcp-1d-julia/logging"
 scontrol show job $SLURM_JOBID
 echo "slurm task ID = $SLURM_ARRAY_TASK_ID"
 echo $N $DELTA $BONDDIM $KRAUSDIM $dt $nt
-cat dynamics_hpc.jl
+cat "${ENV_PATH}tests/test_open_dyn.jl"
 cat "${ENV_PATH}src/lptn.jl" "${ENV_PATH}src/tebd.jl" "${ENV_PATH}src/models.jl" > "$LOG_PATH/${SLURM_ARRAY_JOB_ID}.func"
 
 # launch Julia script
