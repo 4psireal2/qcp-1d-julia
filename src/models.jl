@@ -7,7 +7,7 @@ function expCPHam(omega, dt)
     ham = omega * (kron(Sx, numberOp) + kron(numberOp, Sx))
 
     HamOp = TensorMap(ham, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2)
-    expHamOp = exp(-1im * dt* HamOp)
+    expHamOp = exp(-1im * dt * HamOp)
 
     return expHamOp
 end
@@ -20,8 +20,8 @@ function expCPDiss(gamma, dt)
     numberOpL = kron(Id, numberOp)
 
     diss =
-        gamma * (kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR -
-        (1 / 2) * numberOpL)
+        gamma *
+        (kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR - (1 / 2) * numberOpL)
     diss = TensorMap(
         diss, ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)'
     )
@@ -35,14 +35,13 @@ function expCPDiss(gamma, dt)
 end
 
 function expXXZHam(delta, dt; Jxy=1.0)
-    Sx = [0 +1 ; +1 0];
-    Sy = [0 -1im ; +1im 0];
-    Sz = [+1 0 ; 0 -1];
-    ham = Jxy * (kron(Sx, Sx) + kron(Sy, Sy)) +
-          delta * kron(Sz, Sz)
+    Sx = [0 +1; +1 0]
+    Sy = [0 -1im; +1im 0]
+    Sz = [+1 0; 0 -1]
+    ham = Jxy * (kron(Sx, Sx) + kron(Sy, Sy)) + delta * kron(Sz, Sz)
 
     HamOp = TensorMap(ham, ℂ^2 ⊗ ℂ^2, ℂ^2 ⊗ ℂ^2)
-    expHamOp = exp(-1im * dt* HamOp)
+    expHamOp = exp(-1im * dt * HamOp)
 
     return expHamOp
 end
@@ -52,15 +51,17 @@ function expXXZDissL(gamma, dt)
     Dissipative dynamics at the leftmost site - source
     L = √(2 * γ) * σ^+
     """
-    Sx = [0 +1 ; +1 0];
-    Sy = [0 -1im ; +1im 0];
+    Sx = [0 +1; +1 0]
+    Sy = [0 -1im; +1im 0]
     Splus = (Sx + 1im * Sy) / 2 # [0 1; 0 0]
     Sminus = (Sx - 1im * Sy) / 2 # [0 0; 1 0]
     Id = [+1 0; 0 +1]
 
     diss =
-        gamma * (kron(Splus, Splus) - (1 / 2) * kron((Sminus * Splus), Id) -
-                (1 / 2) * kron(Id, (Sminus * Splus)))
+        gamma * (
+            kron(Splus, Splus) - (1 / 2) * kron((Sminus * Splus), Id) -
+            (1 / 2) * kron(Id, (Sminus * Splus))
+        )
     diss = TensorMap(
         diss, ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)'
     )
@@ -78,15 +79,17 @@ function expXXZDissR(gamma, dt)
     Dissipative dynamics at the rightmost site - drain
     L = √(2 * γ) * σ^-
     """
-    Sx = [0 +1 ; +1 0];
-    Sy = [0 -1im ; +1im 0];
+    Sx = [0 +1; +1 0]
+    Sy = [0 -1im; +1im 0]
     Splus = (Sx + 1im * Sy) / 2 # [0 1; 0 0]
     Sminus = (Sx - 1im * Sy) / 2 # [0 0; 1 0]
     Id = [+1 0; 0 +1]
 
     diss =
-        gamma * (kron(Sminus, Sminus) - (1 / 2) * kron((Splus * Sminus), Id) -
-                (1 / 2) * kron(Id, (Splus * Sminus)))
+        gamma * (
+            kron(Sminus, Sminus) - (1 / 2) * kron((Splus * Sminus), Id) -
+            (1 / 2) * kron(Id, (Splus * Sminus))
+        )
     diss = TensorMap(
         diss, ComplexSpace(2) ⊗ ComplexSpace(2)', ComplexSpace(2) ⊗ ComplexSpace(2)'
     )
@@ -98,7 +101,6 @@ function expXXZDissR(gamma, dt)
 
     return B
 end
-
 
 function constructTFIMPO(J, h, N)
     """ Returns TFI MPO for N sites """
@@ -148,52 +150,57 @@ end
 
 function constructXXZMPO(Jz, N; Jxy=1.0)
     # set Pauli matrices
-    Sx = [0 +1 ; +1 0];
-    Sy = [0 -1im ; +1im 0];
-    Sz = [+1 0 ; 0 -1];
-    Id = [+1 0 ; 0 +1];
-    Zero = [0 0 ; 0 0];
-    d = 2;
+    Sx = [0 +1; +1 0]
+    Sy = [0 -1im; +1im 0]
+    Sz = [+1 0; 0 -1]
+    Id = [+1 0; 0 +1]
+    Zero = [0 0; 0 0]
+    d = 2
 
     # initialize Heisenberg MPO
-    xxzMPO = Vector{TensorMap}(undef, N);
-    
+    xxzMPO = Vector{TensorMap}(undef, N)
+
     # left MPO boundary
-    HL = zeros(ComplexF64, 1, d, d, 5);
-    HL[1, :, :, 1] = Id;
-    HL[1, :, :, 2] = Sx;
-    HL[1, :, :, 3] = Sy;
-    HL[1, :, :, 4] = Sz;
-    HL[1, :, :, 5] = Zero;
-    xxzMPO[1] = TensorMap(HL, ComplexSpace(1) ⊗ ComplexSpace(d), ComplexSpace(d) ⊗ ComplexSpace(5));
+    HL = zeros(ComplexF64, 1, d, d, 5)
+    HL[1, :, :, 1] = Id
+    HL[1, :, :, 2] = Sx
+    HL[1, :, :, 3] = Sy
+    HL[1, :, :, 4] = Sz
+    HL[1, :, :, 5] = Zero
+    xxzMPO[1] = TensorMap(
+        HL, ComplexSpace(1) ⊗ ComplexSpace(d), ComplexSpace(d) ⊗ ComplexSpace(5)
+    )
 
     # bulk MPO
-    for idxMPO = 2 : (N - 1)
-        HC = zeros(ComplexF64, 5, d, d, 5);
-        HC[1, :, :, 1] = Id;
-        HC[1, :, :, 2] = Sx;
-        HC[1, :, :, 3] = Sy;
-        HC[1, :, :, 4] = Sz;
-        HC[1, :, :, 5] = Zero;
-        HC[2, :, :, 5] = Jxy * Sx;
-        HC[3, :, :, 5] = Jxy * Sy;
-        HC[4, :, :, 5] = Jz * Sz;
-        HC[5, :, :, 5] = Id;
-        xxzMPO[idxMPO] = TensorMap(HC, ComplexSpace(5) ⊗ ComplexSpace(d), ComplexSpace(d) ⊗ ComplexSpace(5));
+    for idxMPO in 2:(N - 1)
+        HC = zeros(ComplexF64, 5, d, d, 5)
+        HC[1, :, :, 1] = Id
+        HC[1, :, :, 2] = Sx
+        HC[1, :, :, 3] = Sy
+        HC[1, :, :, 4] = Sz
+        HC[1, :, :, 5] = Zero
+        HC[2, :, :, 5] = Jxy * Sx
+        HC[3, :, :, 5] = Jxy * Sy
+        HC[4, :, :, 5] = Jz * Sz
+        HC[5, :, :, 5] = Id
+        xxzMPO[idxMPO] = TensorMap(
+            HC, ComplexSpace(5) ⊗ ComplexSpace(d), ComplexSpace(d) ⊗ ComplexSpace(5)
+        )
     end
 
     # right MPO boundary
-    HR = zeros(ComplexF64, 5, d, d, 1);
-    HR[1, :, :, 1] = Zero;
-    HR[2, :, :, 1] = Jxy * Sx;
-    HR[3, :, :, 1] = Jxy * Sy;
-    HR[4, :, :, 1] = Jz * Sz;
-    HR[5, :, :, 1] = Id;
-    xxzMPO[N] = TensorMap(HR, ComplexSpace(5) ⊗ ComplexSpace(d), ComplexSpace(d) ⊗ ComplexSpace(1));
+    HR = zeros(ComplexF64, 5, d, d, 1)
+    HR[1, :, :, 1] = Zero
+    HR[2, :, :, 1] = Jxy * Sx
+    HR[3, :, :, 1] = Jxy * Sy
+    HR[4, :, :, 1] = Jz * Sz
+    HR[5, :, :, 1] = Id
+    xxzMPO[N] = TensorMap(
+        HR, ComplexSpace(5) ⊗ ComplexSpace(d), ComplexSpace(d) ⊗ ComplexSpace(1)
+    )
 
     # function return
-    return xxzMPO;
-
+    return xxzMPO
 end
 
 function constructLiouvMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{TensorMap}
@@ -214,8 +221,8 @@ function constructLiouvMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{Ten
     annihilationOp = [0 1; 0 0]
 
     onSite =
-        gamma * (kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR -
-        (1 / 2) * numberOpL)
+        gamma *
+        (kron(annihilationOp, annihilationOp) - (1 / 2) * numberOpR - (1 / 2) * numberOpL)
 
     liouvMPO = Vector{TensorMap}(undef, N)
 
@@ -272,9 +279,7 @@ function constructLiouvMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{Ten
     return liouvMPO
 end
 
-function constructLiouvDagMPO(
-    omega::Float64, gamma::Float64, N::Int64
-)::Vector{TensorMap}
+function constructLiouvDagMPO(omega::Float64, gamma::Float64, N::Int64)::Vector{TensorMap}
     """
     Construct MPO for the adjoint Liouvillian of the contact process
     """

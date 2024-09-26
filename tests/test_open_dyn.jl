@@ -22,7 +22,8 @@ truncErr = 1e-6;
 # observable operator
 basis0 = [1, 0];
 basis1 = [0, 1];
-Sz = [+1 0 ; 0 -1];
+basis = 1 / (sqrt(2)) * (basis0 + basis1);
+Sz = [+1 0; 0 -1];
 Sz = TensorMap(Sz, ℂ^2, ℂ^2);
 
 function main(args)
@@ -80,7 +81,8 @@ function main(args)
     ϵDTrunc_t = Vector{Float64}[]
     Sz_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
-    basisTogether = vcat(fill([basis0, basis0, basis0, basis0, basis0], N ÷ 5)...)
+    # basisTogether = vcat(fill([basis0, basis0, basis0, basis0, basis0], N ÷ 5)...)
+    basisTogether = vcat(fill([basis0], N ÷ 2)..., fill([basis1], N ÷ 2)...)
     XInit = createXBasis(N, basisTogether)
 
     Sz_sites_t[1, :], Sz_t[1] = computeSiteExpVal!(XInit, Sz)
@@ -107,8 +109,9 @@ function main(args)
             @info "TEBD done for $(i)-th time step. Allocated memory: $(allocated_tebd/2^30) GB"
             flush(logFile)
 
-
-            @time allocated_sites = @allocated Sz_sites_t[i + 1, :], Sz_t[i + 1] = computeSiteExpVal!(X_t, Sz) # right-canonical
+            @time allocated_sites = @allocated Sz_sites_t[i + 1, :], Sz_t[i + 1] = computeSiteExpVal!(
+                X_t, Sz
+            ) # right-canonical
             @info "Site Expectation Value computed. Allocated memory: $(allocated_sites/2^30) GB"
 
             push!(ϵHTrunc_t, ϵHTrunc)
@@ -139,7 +142,6 @@ function main(args)
     open(OUTPUT_PATH * FILE_INFO * "_D_trunc_err_t.dat", "w") do file
         serialize(file, ϵDTrunc_t)
     end
-
 
     return close(logFile)
 end

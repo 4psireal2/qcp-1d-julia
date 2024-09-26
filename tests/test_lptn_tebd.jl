@@ -29,8 +29,7 @@ function createXMaxMixed(N)
     tensorBase[:, :, 1, 1] = [1 0]
     tensorBase[:, :, 2, 1] = [0 1]
 
-    for i = 1 : N
-        
+    for i in 1:N
         X[i] = TensorMap(
             # (1 / sqrt(2)) * [1 0; 0 1],
             tensorBase,
@@ -132,7 +131,6 @@ n_sites_test, n_t_test = computeSiteExpVal_test(X_t_test, numberOp);
 @show maximum(ϵHTrunc_test), maximum(ϵDTrunc_test) # (maximum(ϵHTrunc_test), maximum(ϵDTrunc_test)) = (0.0011736754741027294, 9.237969111212845e-9)
 @show maximum(ϵHTrunc), maximum(ϵDTrunc) # (maximum(ϵHTrunc), maximum(ϵDTrunc)) = (0.0011736754741027316, 9.237969092182622e-9)
 
-
 # Test: TEBD - TFI model using LPTN Ansatz for thermal state of closed dynamics
 # Ref: [https://tenpy.readthedocs.io/en/latest/toycodes/solution_3_dmrg.html#Infinite-DMRG]
 N = 12
@@ -145,22 +143,22 @@ g = 1.2;
 Sx = TensorMap([0 1; 1 0], ℂ^2, ℂ^2);
 Sz = TensorMap([1 0; 0 -1], ℂ^2, ℂ^2);
 Id = TensorMap([1 0; 0 1], ℂ^2, ℂ^2);
-HBulk = -J * (Sz ⊗ Sz) - g/2 * (Sx ⊗ Id + Id ⊗ Sx);
-HL = -J * (Sz ⊗ Sz) - g * Sx ⊗ Id - g/2 * Id ⊗ Sx;
-HR = -J * (Sz ⊗ Sz) - g/2 * Sx ⊗ Id - g * Id ⊗ Sx;
+HBulk = -J * (Sz ⊗ Sz) - g / 2 * (Sx ⊗ Id + Id ⊗ Sx);
+HL = -J * (Sz ⊗ Sz) - g * Sx ⊗ Id - g / 2 * Id ⊗ Sx;
+HR = -J * (Sz ⊗ Sz) - g / 2 * Sx ⊗ Id - g * Id ⊗ Sx;
 
-expHo = exp(-delta/2 * HBulk);
+expHo = exp(-delta / 2 * HBulk);
 expHe = exp(-delta * HBulk);
-expHL = exp(-delta/2 * HL)
-if N%2 == 0
-    expHR = exp(-delta/2 * HR)
+expHL = exp(-delta / 2 * HL)
+if N % 2 == 0
+    expHR = exp(-delta / 2 * HR)
 else
     expHR = exp(-delta * HR)
 end
 
 tfiMPO = constructTFIMPO(J, g, N)
 
-let 
+let
     XInit = createXMaxMixed(N)
     for i in 1:nTimeSteps
         X_t, ϵHTrunc, ϵDTrunc = TEBD_noDiss!(XInit, expHL, expHo, expHe, expHR, 15)

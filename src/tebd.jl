@@ -154,7 +154,9 @@ function TEBD(X, uniOp, krausOp, bondDim, krausDim; truncErr=1e-6, canForm=true)
     return X, ϵHTrunc, ϵDTrunc
 end
 
-function TEBD_boundary(X, uniOp, krausOpL, krausOpR, bondDim, krausDim; truncErr=1e-6, canForm=true)
+function TEBD_boundary(
+    X, uniOp, krausOpL, krausOpR, bondDim, krausDim; truncErr=1e-6, canForm=true
+)
     """
     2nd order TEBD with boundary non-unitary layer for one time step
 
@@ -244,7 +246,6 @@ function TEBD_boundary(X, uniOp, krausOpL, krausOpR, bondDim, krausDim; truncErr
     push!(ϵDTrunc, ϵ)
     X[N] = permute(S * V, (2, 1), (3, 4))
 
-
     # OC at the end for chain of even length => move OC to left
     if canForm
         if N % 2 == 0
@@ -310,8 +311,8 @@ function TEBD_noDiss!(X, expHL, expHo, expHe, expHR, bondDim; truncErr=1e-6, can
         gate = expHo
         if i == 1
             gate = expHL
-        elseif  i == N-1
-            gate = expHR 
+        elseif i == N - 1
+            gate = expHR
         end
 
         U, S, V, ϵ = applyGate(X[i], X[i + 1], gate, bondDim, truncErr)
@@ -341,8 +342,8 @@ function TEBD_noDiss!(X, expHL, expHo, expHe, expHR, bondDim; truncErr=1e-6, can
     # sweep R ---> L [even]
     for i in reverse(2:2:(N - 1))
         gate = expHe
-        if i == N-1
-            gate = expHR 
+        if i == N - 1
+            gate = expHR
         end
         U, S, V, ϵ = applyGate(X[i], X[i + 1], gate, bondDim, truncErr)
         push!(ϵHTrunc, ϵ)
@@ -363,8 +364,8 @@ function TEBD_noDiss!(X, expHL, expHo, expHe, expHR, bondDim; truncErr=1e-6, can
         gate = expHo
         if i == 1
             gate = expHL
-        elseif  i == N-1
-            gate = expHR 
+        elseif i == N - 1
+            gate = expHR
         end
         U, S, V, ϵ = applyGate(X[i], X[i + 1], gate, bondDim, truncErr)
         push!(ϵHTrunc, ϵ)

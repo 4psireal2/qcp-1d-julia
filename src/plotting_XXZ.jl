@@ -11,17 +11,20 @@ include("../src/lptn.jl")
 default(; fontfamily="Computer Modern")
 colorPal = palette(:tab10)
 
-N = 100;
-nTimeSteps = 200;
+N = 50;
+nTimeSteps = 20000;
 dt = 0.1; # 0.01 ≤ dt ≤ 0.1
-JOBID = 1101162;
-CHI = 60; KRAUSDIM = 60;
+JOBID = 1146096;
+CHI = 60;
+KRAUSDIM = 60;
 
 DELTAS = [1.0, 1.5];
 GAMMA = 1.0;
 
 RESULT_PATH = "/home/psireal42/study/qcp-1d-julia/hpc/results/"
 OUTPUT_PATH = "/home/psireal42/study/qcp-1d-julia/hpc/outputs/"
+# RESULT_PATH = "/home/psireal42/study/qcp-1d-julia/demos/"
+# OUTPUT_PATH = "/home/psireal42/study/qcp-1d-julia/demos/"
 FILES = "N_$(N)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(CHI)_K_$(KRAUSDIM)_$(JOBID)";
 FILE = "N_$(N)_dt_$(dt)_ntime_$(nTimeSteps)_$(JOBID)";
 
@@ -35,7 +38,6 @@ for (i, DELTA) in enumerate(DELTAS)
     push!(ϵHTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_H_trunc_err_t.dat"))
     push!(ϵDTrunc_t, deserialize(RESULT_PATH * FILE_INFO * "_D_trunc_err_t.dat"))
 end
-
 
 Sz_sites_t_s = Array{Float64}(undef, length(DELTAS), nTimeSteps + 1, N);
 Sz_sites_s = Array{Float64}(undef, length(DELTAS), N);
@@ -51,34 +53,51 @@ end
 # # n_qs
 aplot = plot();
 
+for i in eachindex(DELTAS)
+    plot!(1:N, Sz_sites_s[i, :]; label=L"\Delta = %$(DELTAS[i])")
+end
+
+plot!(; xlabel=L"j", ylabel=L"\langle \sigma^z_j \rangle", legend=:topright)
+savefig(aplot, OUTPUT_PATH * FILE * "_Sz.pdf")
+
+# S_z_sites(t)
+let
+    for i in eachindex(DELTAS)
+        results = []
+        aplot = plot()
+
+        times_indices = [40, 30, 20, 10, 0]
+        for (index, t) in enumerate(times_indices)
+            push!(results, Sz_sites_t_s[i, end - t, :])
+            plot!(1:N, results[index, :]; label=L"t = %$(-t)")
+        end
+
+        plot!(;
+            title=L"\Delta = %$(DELTAS[i])",
+            xlabel=L"j",
+            ylabel=L"\langle \sigma^z_j \rangle",
+            legend=:bottomleft,
+        )
+        savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t_s_DELTA_$(DELTAS[i]).pdf")
+    end
+end
 
 for i in eachindex(DELTAS)
     plot!(1:N, Sz_sites_s[i, :]; label=L"\Delta = %$(DELTAS[i])")
 end
 
-plot!(;
-    xlabel=L"j",
-    ylabel=L"\langle \sigma^z_j \rangle",
-    legend=:bottomleft,
-)
+plot!(; xlabel=L"j", ylabel=L"\langle \sigma^z_j \rangle", legend=:topright)
 savefig(aplot, OUTPUT_PATH * FILE * "_Sz.pdf")
 
 # S_z(t)
 aplot = plot();
 
 for i in eachindex(DELTAS)
-    plot!(dt * (1:(nTimeSteps + 1)), Sz_t_s[i, :],
-          label=L"\Delta = %$(DELTAS[i])")
+    plot!(dt * (1:(nTimeSteps + 1)), Sz_t_s[i, :]; label=L"\Delta = %$(DELTAS[i])")
 end
 
-plot!(;
-    xlabel=L"t",
-    ylabel=L"\sigma^z",
-    legend=:bottomleft,
-)
+plot!(; xlabel=L"t", ylabel=L"\sigma^z", legend=:bottomleft)
 savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
-
-
 
 # # n(t) for OMEGA = 1.9, 5.7, 10.5
 # aplot = plot();
@@ -166,30 +185,30 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # savefig(aplot, OUTPUT_PATH * FILES * "_dens_dens_corr.pdf")
 
 # # ϵHTrunc
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵHTrunc_t_sum = [sum(x) for x in ϵHTrunc_t[i]]
-#     ϵHTrunc_t_max = [maximum(x) for x in ϵHTrunc_t[i]]
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵHTrunc_t_sum;
-#         label=L"\Omega = %$OMEGA, \, \textrm{sum. err.}",
-#     )
-#     # plot!(
-#     #     aplot,
-#     #     dt * (1:nTimeSteps),
-#     #     ϵHTrunc_t_max;
-#     #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
-#     # )
-# end
+aplot = plot();
+for (i, DELTA) in enumerate(DELTAS)
+    ϵHTrunc_t_sum = [sum(x) for x in ϵHTrunc_t[i]]
+    ϵHTrunc_t_max = [maximum(x) for x in ϵHTrunc_t[i]]
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵHTrunc_t_sum;
+        label=L"\Delta = %$DELTA, \, \textrm{sum. err.}",
+    )
+    # plot!(
+    #     aplot,
+    #     dt * (1:nTimeSteps),
+    #     ϵHTrunc_t_max;
+    #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
+    # )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Truncation~error~in~} \chi, \, \chi=%$CHI",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Truncation~error~in~} \chi, \, \chi=%$CHI",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_t.pdf")
 
 # ## cumulative ϵHTrunc accum.
 # aplot = plot();
@@ -234,30 +253,30 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # savefig(aplot, OUTPUT_PATH * FILES * "_H_trunc_err_cumsum_sum_max_t.pdf")
 
 # # ϵDTrunc
-# aplot = plot();
-# for (i, OMEGA) in enumerate(OMEGAS)
-#     ϵDTrunc_t_sum = [sum(x) for x in ϵDTrunc_t[i]]
-#     ϵDTrunc_t_max = [maximum(x) for x in ϵDTrunc_t[i]]
-#     plot!(
-#         aplot,
-#         dt * (1:nTimeSteps),
-#         ϵDTrunc_t_sum;
-#         label=L"\Omega = %$OMEGA, \, \textrm{sum. err.}",
-#     )
-#     # plot!(
-#     #     aplot,
-#     #     dt * (1:nTimeSteps),
-#     #     ϵDTrunc_t_max;
-#     #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
-#     # )
-# end
+aplot = plot();
+for (i, DELTA) in enumerate(DELTAS)
+    ϵDTrunc_t_sum = [sum(x) for x in ϵDTrunc_t[i]]
+    ϵDTrunc_t_max = [maximum(x) for x in ϵDTrunc_t[i]]
+    plot!(
+        aplot,
+        dt * (1:nTimeSteps),
+        ϵDTrunc_t_sum;
+        label=L"\Delta = %$DELTA, \, \textrm{sum. err.}",
+    )
+    # plot!(
+    #     aplot,
+    #     dt * (1:nTimeSteps),
+    #     ϵDTrunc_t_max;
+    #     label=L"\Omega = %$OMEGA, \, \textrm{max. err.}",
+    # )
+end
 
-# plot!(;
-#     xlabel=L"\textrm{t}",
-#     ylabel=L"\textrm{Truncation~error~in~} K, \, K=%$KRAUSDIM",
-#     title=L"N=%$N",
-# )
-# savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_t.pdf")
+plot!(;
+    xlabel=L"\textrm{t}",
+    ylabel=L"\textrm{Truncation~error~in~} K, \, K=%$KRAUSDIM",
+    title=L"N=%$N",
+)
+savefig(aplot, OUTPUT_PATH * FILES * "_D_trunc_err_t.pdf")
 
 # ## cumulative ϵDTrunc accum.
 # aplot = plot();
@@ -379,7 +398,6 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # )
 # savefig(aplot, OUTPUT_PATH * FILE * "_renyiMI_t.pdf")
 
-
 # # entanglement of purfication
 # aplot = plot();
 # for i in eachindex(CHIS)
@@ -420,8 +438,6 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # )
 # savefig(aplot, OUTPUT_PATH * FILE * "_puriEnt_t.pdf")
 
-
-
 # ### Density plot of the site-resolved average density 
 # ### FIG S2
 # # OMEGA = 6.0;
@@ -436,7 +452,6 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # #                     xlabel="Site",ylabel="Time",
 # #                     title=L"\textrm{Average~number~of~particles~for~} \Omega = %$OMEGA,\, \chi = %$CHI,\, K=%$KRAUSDIM")
 # # savefig(OUTPUT_PATH * FILES * "_density_plot.png")
-
 
 # # plot final state
 # # finalStates = Array{Any}(undef, length(CHIS), 3);
@@ -467,7 +482,6 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # #     end
 # # end
 
-
 # # finalMatrices_CHI_1 = Array{Any}(undef, 3)
 
 # # for i = 1 : 3
@@ -475,7 +489,7 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # #     boundaryL = updateEnvL(1, N, finalStates[1, i], boundaryL)
 # #     @tensor boundaryL[-1; -2] := boundaryL[-1, 1, -2, 1]
 # #     boundaryL = convert(Array, boundaryL)
-    
+
 # #     finalMatrices_CHI_1[i] = abs.(boundaryL)
 # # end
 
@@ -502,4 +516,3 @@ savefig(aplot, OUTPUT_PATH * FILE * "_Sz_t.pdf")
 # # heatmap(darkState, colorbar=true, colormap=:deep,
 # #                     title="Dark state density matrix")
 # # savefig(OUTPUT_PATH * "darkState.pdf")
-

@@ -223,7 +223,11 @@ function computeEnergy!(X, Hs)
     boundaryL = TensorMap(ones, ComplexSpace(1), ComplexSpace(1) ⊗ ComplexSpace(1))
 
     for i in 1:N
-        @tensor boundaryL[-3; -1 -2] := boundaryL[6, 1, 4] * Hs[i][1, 2, 3, -1] * X[i][4, 5, 2, -2] * conj(X[i][6, 5, 3, -3])
+        @tensor boundaryL[-3; -1 -2] :=
+            boundaryL[6, 1, 4] *
+            Hs[i][1, 2, 3, -1] *
+            X[i][4, 5, 2, -2] *
+            conj(X[i][6, 5, 3, -3])
     end
 
     boundaryR = TensorMap(ones, ComplexSpace(1) ⊗ ComplexSpace(1), ComplexSpace(1))

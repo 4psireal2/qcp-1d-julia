@@ -19,16 +19,16 @@
 #SBATCH --cpus-per-task=16
 
 # memory per CPU in MB (see also --mem)
-#SBATCH --mem-per-cpu=16384
+#SBATCH --mem-per-cpu=4096
 
 # file to which standard output will be written (%A --> jobID, %a --> arrayID)
 #SBATCH --output=/scratch/nguyed99/qcp-1d-julia/logging/xxz_dyn_%A_%a.out
 
 # file to which standard errors will be written (%A --> jobID, %a --> arrayID)
-#SBATCH --error=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.err
+#SBATCH --error=/scratch/nguyed99/qcp-1d-julia/logging/xxz_dyn_%A_%a.err
 
 # runtime in HH:MM:SS format (DAYS-HH:MM:SS format)
-#SBATCH --time=5-00:00:00
+#SBATCH --time=2-00:00:00
 
 # job arrays
 #SBATCH --array=0-1
@@ -50,7 +50,7 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 
 # simulation parameter
-N=100
+N=50
 DELTAS=(1.0 1.5)
 
 DELTA_INDEX=$((SLURM_ARRAY_TASK_ID % 2))
@@ -61,7 +61,7 @@ BONDDIM=60
 KRAUSDIM=60
 
 dt=0.1
-nt=500
+nt=40000
 
 # paths and file names
 timestamp=$(date +'%Y-%m-%d-%H-%M-%S')

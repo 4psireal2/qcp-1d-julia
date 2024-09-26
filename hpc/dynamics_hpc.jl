@@ -80,7 +80,7 @@ function main(args)
     ϵDTrunc_t = Vector{Float64}[]
     entEntropy_t = []
     renyiMI_t = []
-    puriEnt_t =[]
+    puriEnt_t = []
     densDensCorrelation = Array{Float64}(undef, N - 1)
     n_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
@@ -186,13 +186,12 @@ function main(args)
     end
 
     # save final state
-    finalState = Vector{Dict}(undef, N);
+    finalState = Vector{Dict}(undef, N)
 
-    for i = 1 : N
-        finalState[i] = convert(Dict, X_t[i]);
+    for i in 1:N
+        finalState[i] = convert(Dict, X_t[i])
     end
     serialize(OUTPUT_PATH * FILE_INFO * "_finalState.dat", finalState)
-
 
     return close(logFile)
 end
