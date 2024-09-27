@@ -81,8 +81,11 @@ function main(args)
     ϵDTrunc_t = Vector{Float64}[]
     Sz_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
-    # basisTogether = vcat(fill([basis0, basis0, basis0, basis0, basis0], N ÷ 5)...)
-    basisTogether = vcat(fill([basis0], N ÷ 2)..., fill([basis1], N ÷ 2)...)
+    if DELTA == 1.5
+        basisTogether = vcat(fill([basis0], N ÷ 2)..., fill([basis1], N ÷ 2)...)
+    elseif DELTA == 1.0
+        basisTogether = vcat(fill([basis0, basis0, basis0, basis0, basis0], N ÷ 5)...)
+    end
     XInit = createXBasis(N, basisTogether)
 
     Sz_sites_t[1, :], Sz_t[1] = computeSiteExpVal!(XInit, Sz)
