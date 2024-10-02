@@ -12,11 +12,11 @@ default(; fontfamily="Computer Modern")
 colorPal = palette(:tab10)
 
 N = 50;
-nTimeSteps = 40000;
+nTimeSteps = 20000;
 dt = 0.1; # 0.01 ≤ dt ≤ 0.1
-JOBID = 1152323;
-CHI = 60;
-KRAUSDIM = 60;
+JOBID = 1170351;
+CHI = 100;
+KRAUSDIM = 100;
 
 DELTAS = [1.0, 1.5];
 GAMMA = 1.0;

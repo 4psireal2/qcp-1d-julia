@@ -19,7 +19,7 @@
 #SBATCH --cpus-per-task=16
 
 # memory per CPU in MB (see also --mem)
-#SBATCH --mem-per-cpu=20096
+#SBATCH --mem-per-cpu=16384
 
 # file to which standard output will be written (%A --> jobID, %a --> arrayID)
 #SBATCH --output=/scratch/nguyed99/qcp-1d-julia/logging/cp_dyn_%A_%a.out
@@ -31,7 +31,7 @@
 #SBATCH --time=5-00:00:00
 
 # job arrays
-#SBATCH --array=0-35
+#SBATCH --array=0-8
 
 
 # select partition
@@ -50,12 +50,12 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 
 # simulation parameter
-N=8
-# N=10
+# N=8
+N=10
 # N=20
 
-OMEGAS=(0.0 0.9 1.9 2.8 3.8 4.7 5.7 6.7 7.6 8.6 9.5 10.5)
-# OMEGAS=(2.0 6.0 10.0)
+# OMEGAS=(0.0 0.9 1.9 2.8 3.8 4.7 5.7 6.7 7.6 8.6 9.5 10.5)
+OMEGAS=(2.0 6.0 10.0)
 # OMEGAS=(5.95 6.0 6.05)
 
 # OMEGA_INDEX=$((SLURM_ARRAY_TASK_ID / 2))
@@ -96,9 +96,9 @@ LOG_PATH="/scratch/nguyed99/qcp-1d-julia/logging"
 scontrol show job $SLURM_JOBID
 echo "slurm task ID = $SLURM_ARRAY_TASK_ID"
 echo $N $OMEGA $BONDDIM $KRAUSDIM $dt $nt
-cat dynamics_hpc.jl
+cat dynamics_cp.jl
 cat "${ENV_PATH}src/lptn.jl" "${ENV_PATH}src/tebd.jl" "${ENV_PATH}src/models.jl" > "$LOG_PATH/${SLURM_ARRAY_JOB_ID}.func"
 
 # launch Julia script
 export JULIA_PROJECT=$ENV_PATH
-julia dynamics_hpc.jl --N $N --OMEGA $OMEGA --BONDDIM $BONDDIM --KRAUSDIM $KRAUSDIM --dt $dt --nt $nt --JOBID $SLURM_ARRAY_JOB_ID 2>&1 > "$LOG_PATH/${SLURM_ARRAY_TASK_ID}.log"
+julia dynamics_cp.jl --N $N --OMEGA $OMEGA --BONDDIM $BONDDIM --KRAUSDIM $KRAUSDIM --dt $dt --nt $nt --JOBID $SLURM_ARRAY_JOB_ID 2>&1 > "$LOG_PATH/${SLURM_ARRAY_TASK_ID}.log"

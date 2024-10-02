@@ -28,7 +28,7 @@
 #SBATCH --error=/scratch/nguyed99/qcp-1d-julia/logging/xxz_dyn_%A_%a.err
 
 # runtime in HH:MM:SS format (DAYS-HH:MM:SS format)
-#SBATCH --time=3-00:00:00
+#SBATCH --time=7-00:00:00
 
 # job arrays
 #SBATCH --array=0-1
@@ -57,11 +57,11 @@ DELTA_INDEX=$((SLURM_ARRAY_TASK_ID % 2))
 
 DELTA=${DELTAS[DELTA_INDEX]}
 
-BONDDIM=60
-KRAUSDIM=60
+BONDDIM=70
+KRAUSDIM=70
 
-dt=0.1
-nt=55000
+dt=0.5
+nt=12000
 
 # paths and file names
 timestamp=$(date +'%Y-%m-%d-%H-%M-%S')

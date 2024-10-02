@@ -88,6 +88,7 @@ function main(args)
     end
     XInit = createXBasis(N, basisTogether)
 
+    XInit = orthonormalizeX!(XInit; orthoCenter=1)
     Sz_sites_t[1, :], Sz_t[1] = computeSiteExpVal!(XInit, Sz)
     XInit = orthonormalizeX!(XInit; orthoCenter=1)
 

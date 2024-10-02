@@ -159,9 +159,10 @@ end
 tfiMPO = constructTFIMPO(J, g, N)
 
 let
-    XInit = createXMaxMixed(N)
+    X_t = createXMaxMixed(N)
+
     for i in 1:nTimeSteps
-        X_t, ϵHTrunc, ϵDTrunc = TEBD_noDiss!(XInit, expHL, expHo, expHe, expHR, 15)
+        X_t, ϵHTrunc, ϵDTrunc = TEBD_noDiss!(X_t, expHL, expHo, expHe, expHR, 15)
 
         if mod(i, 100) == 0
             @show computeSiteExpVal!(X_t, Sx) # magnetization in X = 0.81887

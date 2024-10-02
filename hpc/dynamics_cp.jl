@@ -84,10 +84,10 @@ function main(args)
     densDensCorrelation = Array{Float64}(undef, N - 1)
     n_sites_t = Array{Float64}(undef, nTimeSteps + 1, N)
 
-    basisTogether = vcat(fill([basis0, basis1, basis1, basis1, basis1], N ÷ 5)...)
+    basisTogether = vcat(fill([basis1, basis1, basis1, basis1, basis1], N ÷ 5)...)
     XInit = createXBasis(N, basisTogether)
-    # XInit = createXBasis(N, [fill(basis0, 4); [Vector{Int64}(basis1)]; fill(basis0, 5)]);
 
+    XInit = orthonormalizeX!(XInit; orthoCenter=1)
     n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp)
     push!(entEntropy_t, computeEntEntropy!(XInit))
     push!(puriEnt_t, computePuriEntanglement!(XInit))
