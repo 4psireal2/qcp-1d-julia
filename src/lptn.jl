@@ -232,7 +232,7 @@ function computeEnergy!(X, Hs)
 
     boundaryR = TensorMap(ones, ComplexSpace(1) ⊗ ComplexSpace(1), ComplexSpace(1))
     @tensor energy = boundaryL[3, 1, 2] * boundaryR[1, 2, 3]
-    return energy
+    return real(energy)
 end
 
 function computeSiteExpVal_test(X, onSiteOp; leftCan=false)
@@ -354,6 +354,7 @@ end
 function computeEntSpec!(X)
     """
     Compute entanglement spectrum for the bipartion of LPTN chain at half length
+    Similar to vMPO style
     """
 
     N = length(X)
@@ -372,37 +373,6 @@ function computeEntSpec!(X)
 
     return diag(S)
 end
-
-# function computeEntEntropy!(X)
-#     """
-#     Compute entanglement spectrum for the bipartion of X chain at half length
-#     Ref: https://arxiv.org/abs/1303.3942
-#     """
-
-#     N = length(X)
-#     indL, indR = N ÷ 2, N ÷ 2 + 1
-#     X = orthonormalizeX!(X; orthoCenter=indL)
-
-#     @tensor bondTensor[-1 -2 -4; -3 -5 -6] :=
-#         X[indL][-1, -2, -3, 1] * X[indR][1, -4, -5, -6]
-#     bondTensor /= norm(bondTensor)
-
-#     U, S, V, ϵ = tsvd(bondTensor, (1, 2, 3), (4, 5, 6); alg=TensorKit.SVD())
-#     S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]))
-#     S = diag(S)
-#     S_phys = -sum((S .^ 2) .* (log2.(S .^ 2)))
-
-#     @tensor bondTensor[-1 -5 -6; -2 -3 -4] :=
-#         X[indL][-1, 1, -2, -3] * conj(X[indL][-4, 1, -5, -6])
-#     bondTensor /= norm(bondTensor)
-
-#     U, S, V, ϵ = tsvd(bondTensor, (1, 4, 5), (2, 3, 6); alg=TensorKit.SVD())
-#     S = reshape(convert(Array, S), dim(space(S)[1]), dim(space(S)[1]))
-#     S = diag(S)
-#     S_therm = -sum((S .^ 2) .* (log2.(S .^ 2)))
-
-#     return S_phys + S_therm
-# end
 
 function updateEnvL(index1, index2, X, boundaryL)
     for i in index1:index2
@@ -451,8 +421,9 @@ function updateEnvR(index1, index2, X, boundaryR)
     return boundaryR
 end
 
-function computeEntEntropy!(X)
+function computevNEntropy!(X)
     """
+    von Neumann entropy S = - ∑_j η_j ln(η_j) for ρ = ∑_j η_j |j><j|
     Ref:
     1. TeNPY -> purification_mps.py
     2. https://doi.org/10.1103/PhysRevB.98.235163
@@ -482,7 +453,7 @@ function compute2RenyiMI!(X)
 
     N = length(X)
     indL, indR = N ÷ 2, (N ÷ 2) + 1
-    X = orthonormalizeX!(X; orthoCenter=indL)
+    X = orthonormalizeX!(X; orthoCenter=indL) 
 
     # compute S_α for the left-half
     boundaryL = TensorMap(ones, ℂ^1 ⊗ ℂ^1, ℂ^1 ⊗ ℂ^1)
@@ -522,9 +493,10 @@ function compute2RenyiMI!(X)
     return S_left + S_right - S_whole
 end
 
-function computevNEntropy(S)
+function computevNEntEntropy(S)
     """
-    Compute von Neumann entropy given the singular value spectrum
+    For bipartite pure state
+    Compute von Neumann entanglement entropy given the singular value spectrum
     """
     return -sum((S .^ 2) .* (log.(S .^ 2)))
 end

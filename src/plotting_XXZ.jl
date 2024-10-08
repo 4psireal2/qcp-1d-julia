@@ -11,12 +11,12 @@ include("../src/lptn.jl")
 default(; fontfamily="Computer Modern")
 colorPal = palette(:tab10)
 
-N = 50;
-nTimeSteps = 20000;
+N = 100;
+nTimeSteps = 60000;
 dt = 0.1; # 0.01 ≤ dt ≤ 0.1
-JOBID = 1170351;
-CHI = 100;
-KRAUSDIM = 100;
+JOBID = 1241598;
+CHI = 70;
+KRAUSDIM = 70;
 
 DELTAS = [1.0, 1.5];
 GAMMA = 1.0;

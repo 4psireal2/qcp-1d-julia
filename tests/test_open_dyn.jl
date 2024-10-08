@@ -70,11 +70,11 @@ function main(args)
     GAMMA = 1.0
 
     FILE_INFO = "N_$(N)_DELTA_$(DELTA)_dt_$(dt)_ntime_$(nTimeSteps)_CHI_$(BONDDIM)_K_$(KRAUSDIM)_$(SLURM_ARRAY_JOB_ID)"
-    logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+")
-    logger = SimpleLogger(logFile, Logging.Info)
-    Base.global_logger(logger)
+    # logFile = open(LOG_PATH * "$(FILE_INFO).log", "w+")
+    # logger = SimpleLogger(logFile, Logging.Info)
+    # Base.global_logger(logger)
 
-    @info "System and simulation info: N=$N, DELTA=$DELTA, GAMMA=$GAMMA, BONDDIM=$BONDDIM, KRAUSDIM=$KRAUSDIM with truncErr=$truncErr"
+    @show "System and simulation info: N=$N, DELTA=$DELTA, GAMMA=$GAMMA, BONDDIM=$BONDDIM, KRAUSDIM=$KRAUSDIM with truncErr=$truncErr"
 
     Sz_t = zeros(nTimeSteps + 1)
     ϵHTrunc_t = Vector{Float64}[]
@@ -92,7 +92,7 @@ function main(args)
     Sz_sites_t[1, :], Sz_t[1] = computeSiteExpVal!(XInit, Sz)
     XInit = orthonormalizeX!(XInit; orthoCenter=1)
 
-    @info "Running second-order TEBD..."
+    @show "Running second-order TEBD..."
     elapsed_time = @elapsed begin
         hamDyn = expXXZHam(DELTA, dt / 2)
         dissDynL = expXXZDissL(GAMMA, dt)
@@ -110,26 +110,26 @@ function main(args)
                 truncErr=truncErr,
                 canForm=true, # orthonormalized X_t
             )
-            @info "TEBD done for $(i)-th time step. Allocated memory: $(allocated_tebd/2^30) GB"
-            flush(logFile)
+            @show "TEBD done for $(i)-th time step. Allocated memory: $(allocated_tebd/2^30) GB"
+            # flush(logFile)
 
             @time allocated_sites = @allocated Sz_sites_t[i + 1, :], Sz_t[i + 1] = computeSiteExpVal!(
                 X_t, Sz
             ) # right-canonical
-            @info "Site Expectation Value computed. Allocated memory: $(allocated_sites/2^30) GB"
+            @show "Site Expectation Value computed. Allocated memory: $(allocated_sites/2^30) GB"
 
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
 
-            @info "Computation of properties done for $(i)-th time step"
-            flush(logFile)
+            @show "Computation of properties done for $(i)-th time step"
+            # flush(logFile)
 
             X_t = orthonormalizeX!(X_t; orthoCenter=1)
         end
     end
 
-    @info "Elapsed time for TEBD: $elapsed_time seconds"
-    @info "Saving data..."
+    @show "Elapsed time for TEBD: $elapsed_time seconds"
+    @show "Saving data..."
 
     open(OUTPUT_PATH * FILE_INFO * "_Sz_sites_t.dat", "w") do file
         serialize(file, Sz_sites_t)
@@ -147,7 +147,7 @@ function main(args)
         serialize(file, ϵDTrunc_t)
     end
 
-    return close(logFile)
+    # return close(logFile)
 end
 
 main(ARGS)

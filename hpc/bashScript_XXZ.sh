@@ -57,11 +57,11 @@ DELTA_INDEX=$((SLURM_ARRAY_TASK_ID % 2))
 
 DELTA=${DELTAS[DELTA_INDEX]}
 
-BONDDIM=70
-KRAUSDIM=70
+BONDDIM=60
+KRAUSDIM=60
 
-dt=0.5
-nt=12000
+dt=0.1
+nt=60000
 
 # paths and file names
 timestamp=$(date +'%Y-%m-%d-%H-%M-%S')

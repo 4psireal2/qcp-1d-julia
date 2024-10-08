@@ -78,7 +78,7 @@ function main(args)
     n_t = zeros(nTimeSteps + 1)
     ϵHTrunc_t = Vector{Float64}[]
     ϵDTrunc_t = Vector{Float64}[]
-    entEntropy_t = []
+    vNEntropy_t = []
     renyiMI_t = []
     puriEnt_t = []
     densDensCorrelation = Array{Float64}(undef, N - 1)
@@ -89,7 +89,7 @@ function main(args)
 
     XInit = orthonormalizeX!(XInit; orthoCenter=1)
     n_sites_t[1, :], n_t[1] = computeSiteExpVal!(XInit, numberOp)
-    push!(entEntropy_t, computeEntEntropy!(XInit))
+    push!(vNEntropy_t, computevNEntropy!(XInit))
     push!(puriEnt_t, computePuriEntanglement!(XInit))
     push!(renyiMI_t, compute2RenyiMI!(XInit))
     XInit = orthonormalizeX!(XInit; orthoCenter=1)
@@ -131,9 +131,9 @@ function main(args)
             push!(ϵHTrunc_t, ϵHTrunc)
             push!(ϵDTrunc_t, ϵDTrunc)
 
-            @time allocated_entEntropy = @allocated entEntropy = computeEntEntropy!(X_t) # mid-canonical
-            push!(entEntropy_t, entEntropy)
-            @info "Entanglement entropy computed. Allocated memory: $(allocated_entEntropy/2^30) GB"
+            @time allocated_vNEntropy = @allocated vNEntropy = computevNEntropy!(X_t) # mid-canonical
+            push!(vNEntropy_t, vNEntropy)
+            @info "von Neumann entropy computed. Allocated memory: $(allocated_vNEntropy/2^30) GB"
 
             @time allocated_puriEnt = @allocated puriEnt = computePuriEntanglement!(X_t) # mid-canonical
             push!(puriEnt_t, puriEnt)
@@ -169,8 +169,8 @@ function main(args)
         serialize(file, ϵDTrunc_t)
     end
 
-    open(OUTPUT_PATH * FILE_INFO * "_ent_entropy_t.dat", "w") do file
-        serialize(file, entEntropy_t)
+    open(OUTPUT_PATH * FILE_INFO * "_vNentropy_t.dat", "w") do file
+        serialize(file, vNEntropy_t)
     end
 
     open(OUTPUT_PATH * FILE_INFO * "_puriEnt_t.dat", "w") do file

@@ -45,26 +45,26 @@ else
 end
 
 ### no noise
-entEntropy_t = []
-Sx_av_t = []
+vNEntropy_t = []
+Sz_av_t = []
 
 let
     basisTogether = vcat(fill([basis0], N)...)
     X_t = createXBasis(N, basisTogether)
     X_t = orthonormalizeX!(X_t; orthoCenter=1)
-    _, Sx_av = computeSiteExpVal!(X_t, Sx)
-    push!(Sx_av_t, Sx_av)
+    _, Sz_av = computeSiteExpVal!(X_t, Sz)
+    push!(Sz_av_t, Sz_av)
     X_t = orthonormalizeX!(X_t; orthoCenter=1)
-    push!(entEntropy_t, computeEntEntropy!(X_t))
-    X_t = orthonormalizeX!(X_t; orthoCenter=1)    
+    # push!(vNEntropy_t, computevNEntropy!(X_t))
+    # X_t = orthonormalizeX!(X_t; orthoCenter=1)    
 
     for i in 1:nTimeSteps
         X_t, ϵHTrunc, ϵDTrunc = TEBD_noDiss!(X_t, expHL, expHo, expHe, expHR, CHI)
-        _, Sx_av = computeSiteExpVal!(X_t, Sx)
-        push!(Sx_av_t, Sx_av)
+        _, Sz_av = computeSiteExpVal!(X_t, Sz)
+        push!(Sz_av_t, Sz_av)
         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-        push!(entEntropy_t, computeEntEntropy!(X_t))
-        X_t = orthonormalizeX!(X_t; orthoCenter=1)    
+        # push!(vNEntropy_t, computevNEntropy!(X_t))
+        # X_t = orthonormalizeX!(X_t; orthoCenter=1)    
     end
 end
 
@@ -74,12 +74,12 @@ end
 # savefig(aplot, OUTPUT_PATH * FILE * "_Sx_no_noise.pdf")
 
 # aplot = plot();
-# plot!(dt * (0:(nTimeSteps)), entEntropy_t)
+# plot!(dt * (0:(nTimeSteps)), vNEntropy_t)
 # plot!(; xlabel=L"t", ylabel=L"S_{vN}")
 # savefig(aplot, OUTPUT_PATH * FILE * "_SvN_no_noise.pdf")
 
 # ### with dephasing noise
-# entEntropy_dep_t = []
+# vNEntropy_dep_t = []
 # Sx_av_dep_t = []
 
 # function expDephasing(gamma, dt)
@@ -113,7 +113,7 @@ expHR = exp(-1im * dt / 2 * HR)
 #     _, Sx_av = computeSiteExpVal!(X_t, Sx)
 #     push!(Sx_av_dep_t, Sx_av)
 #     X_t = orthonormalizeX!(X_t; orthoCenter=1)
-#     push!(entEntropy_dep_t, computeEntEntropy!(X_t))
+#     push!(vNEntropy_dep_t, computevNEntropy!(X_t))
 #     X_t = orthonormalizeX!(X_t; orthoCenter=1)    
     
 #     for i in 1:nTimeSteps
@@ -121,7 +121,7 @@ expHR = exp(-1im * dt / 2 * HR)
 #         _, Sx_av = computeSiteExpVal!(X_t, Sx)
 #         push!(Sx_av_dep_t, Sx_av)
 #         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-#         push!(entEntropy_dep_t, computeEntEntropy!(X_t))
+#         push!(vNEntropy_dep_t, computevNEntropy!(X_t))
 #         X_t = orthonormalizeX!(X_t; orthoCenter=1)    
 #     end
 # end
@@ -133,7 +133,7 @@ expHR = exp(-1im * dt / 2 * HR)
 # savefig(aplot, OUTPUT_PATH * FILE * "_Sx_dephasing_noise.pdf")
 
 # aplot = plot();
-# plot!(dt * (0:(nTimeSteps)), entEntropy_dep_t)
+# plot!(dt * (0:(nTimeSteps)), vNEntropy_dep_t)
 # plot!(; xlabel=L"t", ylabel=L"S_{vN}")
 # savefig(aplot, OUTPUT_PATH * FILE * "_SvN_dephasing_noise.pdf")
 
@@ -168,7 +168,7 @@ expHR = exp(-1im * dt / 2 * HR)
 # end
 
 # noise = expSponEm(1.5, dt)
-# entEntropy_sponEm_t = []
+# vNEntropy_sponEm_t = []
 # Sx_av_sponEm_t = []
 
 # let
@@ -178,7 +178,7 @@ expHR = exp(-1im * dt / 2 * HR)
 #     _, Sx_av = computeSiteExpVal!(X_t, Sx)
 #     push!(Sx_av_sponEm_t, Sx_av)
 #     X_t = orthonormalizeX!(X_t; orthoCenter=1)
-#     push!(entEntropy_sponEm_t, computeEntEntropy!(X_t))
+#     push!(vNEntropy_sponEm_t, computevNEntropy!(X_t))
 #     X_t = orthonormalizeX!(X_t; orthoCenter=1)    
     
 #     for i in 1:nTimeSteps
@@ -186,7 +186,7 @@ expHR = exp(-1im * dt / 2 * HR)
 #         _, Sx_av = computeSiteExpVal!(X_t, Sx)
 #         push!(Sx_av_sponEm_t, Sx_av)
 #         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-#         push!(entEntropy_sponEm_t, computeEntEntropy!(X_t))
+#         push!(vNEntropy_sponEm_t, computevNEntropy!(X_t))
 #         X_t = orthonormalizeX!(X_t; orthoCenter=1)    
 #     end
 # end
@@ -197,7 +197,7 @@ expHR = exp(-1im * dt / 2 * HR)
 # savefig(aplot, OUTPUT_PATH * FILE * "_Sx_sponEm_noise.pdf")
 
 # aplot = plot();
-# plot!(dt * (0:(nTimeSteps)), entEntropy_sponEm_t)
+# plot!(dt * (0:(nTimeSteps)), vNEntropy_sponEm_t)
 # plot!(; xlabel=L"t", ylabel=L"S_{vN}")
 # savefig(aplot, OUTPUT_PATH * FILE * "_SvN_sponEm_noise.pdf")
 
@@ -238,34 +238,34 @@ function randomUniNoise(gamma, dt)
     return B
 end
 
-entEntropy_randomUni_t_many = []
-Sx_av_randomUni_t_many = []
+vNEntropy_randomUni_t_many = []
+Sz_av_randomUni_t_many = []
 
 for gamma in GAMMAS
     noise = randomUniNoise(gamma, dt)
-    entEntropy_randomUni_t = []
-    Sx_av_randomUni_t = []
+    vNEntropy_randomUni_t = []
+    Sz_av_randomUni_t = []
     let
         basisTogether = vcat(fill([basis0], N)...)
         X_t = createXBasis(N, basisTogether)
         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-        _, Sx_av = computeSiteExpVal!(X_t, Sx)
-        push!(Sx_av_randomUni_t, Sx_av)
+        _, Sz_av = computeSiteExpVal!(X_t, Sz)
+        push!(Sz_av_randomUni_t, Sz_av)
         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-        push!(entEntropy_randomUni_t, computeEntEntropy!(X_t))
-        X_t = orthonormalizeX!(X_t; orthoCenter=1)    
+        # push!(vNEntropy_randomUni_t, computevNEntropy!(X_t))
+        # X_t = orthonormalizeX!(X_t; orthoCenter=1)    
         
         for i in 1:nTimeSteps
             X_t, ϵHTrunc, ϵDTrunc = TEBD_OBC_Diss!(X_t, expHL, expHo, expHe, expHR, noise, CHI, KRAUSDIM)
-            _, Sx_av = computeSiteExpVal!(X_t, Sx)
-            push!(Sx_av_randomUni_t, Sx_av)
+            _, Sz_av = computeSiteExpVal!(X_t, Sz)
+            push!(Sz_av_randomUni_t, Sz_av)
             X_t = orthonormalizeX!(X_t; orthoCenter=1)
-            push!(entEntropy_randomUni_t, computeEntEntropy!(X_t))
-            X_t = orthonormalizeX!(X_t; orthoCenter=1)    
+            # push!(vNEntropy_randomUni_t, computevNEntropy!(X_t))
+            # X_t = orthonormalizeX!(X_t; orthoCenter=1)    
         end
         
-        push!(entEntropy_randomUni_t_many, entEntropy_randomUni_t)
-        push!(Sx_av_randomUni_t_many, Sx_av_randomUni_t)
+        # push!(vNEntropy_randomUni_t_many, vNEntropy_randomUni_t)
+        push!(Sz_av_randomUni_t_many, Sz_av_randomUni_t)
     end
 end
 
@@ -275,7 +275,7 @@ end
 # savefig(aplot, OUTPUT_PATH * FILE * "_Sx_randomUnitary_noise.pdf")
 
 # aplot = plot();
-# plot!(dt * (0:(nTimeSteps)), entEntropy_randomUni_t)
+# plot!(dt * (0:(nTimeSteps)), vNEntropy_randomUni_t)
 # plot!(; xlabel=L"t", ylabel=L"S_{vN}")
 # savefig(aplot, OUTPUT_PATH * FILE * "_SvN_randomUnitary_noise.pdf")
 
@@ -308,64 +308,64 @@ function randomNoise(gamma, dt)
     return B
 end
 
-entEntropy_randomNoise_t_many = []
-Sx_av_randomNoise_t_many = []
+vNEntropy_randomNoise_t_many = []
+Sz_av_randomNoise_t_many = []
 
 for gamma in GAMMAS
     noise = randomNoise(gamma, dt)
-    entEntropy_randomNoise_t = []
-    Sx_av_randomNoise_t = []
+    vNEntropy_randomNoise_t = []
+    Sz_av_randomNoise_t = []
     
     let
         basisTogether = vcat(fill([basis0], N)...)
         X_t = createXBasis(N, basisTogether)
         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-        _, Sx_av = computeSiteExpVal!(X_t, Sx)
-        push!(Sx_av_randomNoise_t, Sx_av)
+        _, Sz_av = computeSiteExpVal!(X_t, Sz)
+        push!(Sz_av_randomNoise_t, Sz_av)
         X_t = orthonormalizeX!(X_t; orthoCenter=1)
-        push!(entEntropy_randomNoise_t, computeEntEntropy!(X_t))
-        X_t = orthonormalizeX!(X_t; orthoCenter=1)    
+        # push!(vNEntropy_randomNoise_t, computevNEntropy!(X_t))
+        # X_t = orthonormalizeX!(X_t; orthoCenter=1)    
         
         for i in 1:nTimeSteps
             X_t, ϵHTrunc, ϵDTrunc = TEBD_OBC_Diss!(X_t, expHL, expHo, expHe, expHR, noise, CHI, KRAUSDIM)
-            _, Sx_av = computeSiteExpVal!(X_t, Sx)
-            push!(Sx_av_randomNoise_t, Sx_av)
+            _, Sz_av = computeSiteExpVal!(X_t, Sz)
+            push!(Sz_av_randomNoise_t, Sz_av)
             X_t = orthonormalizeX!(X_t; orthoCenter=1)
-            push!(entEntropy_randomNoise_t, computeEntEntropy!(X_t))
-            X_t = orthonormalizeX!(X_t; orthoCenter=1)    
+            # push!(vNEntropy_randomNoise_t, computevNEntropy!(X_t))
+            # X_t = orthonormalizeX!(X_t; orthoCenter=1)    
         end
     end
 
-    push!(entEntropy_randomNoise_t_many, entEntropy_randomNoise_t)
-    push!(Sx_av_randomNoise_t_many, Sx_av_randomNoise_t)
+    # push!(vNEntropy_randomNoise_t_many, vNEntropy_randomNoise_t)
+    push!(Sz_av_randomNoise_t_many, Sz_av_randomNoise_t)
 end
 
 aplot = plot();
-plot!(dt * (0:(nTimeSteps)), Sx_av_randomNoise_t_many[1], ls=:dashdot, label="uniform")
-plot!(dt * (0:(nTimeSteps)), Sx_av_randomUni_t_many[1], ls=:dash, label="uniform+unitary")
-plot!(dt * (0:(nTimeSteps)), Sx_av_t, label="no noise")
-plot!(; xlabel=L"t", ylabel=L"\langle \sigma^x \rangle",
+plot!(dt * (0:(nTimeSteps)), Sz_av_randomNoise_t_many[1], ls=:dashdot, label="uniform")
+plot!(dt * (0:(nTimeSteps)), Sz_av_randomUni_t_many[1], ls=:dash, label="uniform+unitary")
+plot!(dt * (0:(nTimeSteps)), Sz_av_t, label="no noise")
+plot!(; xlabel=L"t", ylabel=L"\langle \sigma^z \rangle",
         title=L"(N, \chi, \, K) = (%$(N),%$(CHI), %$(KRAUSDIM))")
 savefig(aplot, OUTPUT_PATH * FILE * "_for_checking.pdf")
 
 
 aplot = plot();
-plot!(dt * (0:(nTimeSteps)), Sx_av_t, label="no noise")
+plot!(dt * (0:(nTimeSteps)), Sz_av_t, label="no noise")
 for i = 2:6
-    plot!(dt * (0:(nTimeSteps)), Sx_av_randomNoise_t_many[i], ls=:dashdot, label=L"uniform, \gamma=%$(GAMMAS[i])")
-    plot!(dt * (0:(nTimeSteps)), Sx_av_randomUni_t_many[i], ls=:dash, label=L"uniform+unitary, \gamma=%$(GAMMAS[i])")
+    plot!(dt * (0:(nTimeSteps)), Sz_av_randomNoise_t_many[i], ls=:dashdot, label=L"uniform, \gamma=%$(GAMMAS[i])")
+    plot!(dt * (0:(nTimeSteps)), Sz_av_randomUni_t_many[i], ls=:dash, label=L"uniform+unitary, \gamma=%$(GAMMAS[i])")
 end
-plot!(; xlabel=L"t", ylabel=L"\langle \sigma^x \rangle", legend=:bottomright, legendfontsize=7,
+plot!(; xlabel=L"t", ylabel=L"\langle \sigma^z \rangle", legend=:topright, legendfontsize=7,
         title=L"(N, \chi, \, K) = (%$(N),%$(CHI), %$(KRAUSDIM))")
 
-savefig(aplot, OUTPUT_PATH * FILE * "_Sx_zusammen.pdf")
+savefig(aplot, OUTPUT_PATH * FILE * "_Sz_zusammen.pdf")
 
-aplot = plot();
-plot!(dt * (0:(nTimeSteps)), entEntropy_t, label="no noise")
-for i = 2:6
-    plot!(dt * (0:(nTimeSteps)), entEntropy_randomNoise_t_many[i], ls=:dashdot, label=L"uniform, \gamma=%$(GAMMAS[i])")
-    plot!(dt * (0:(nTimeSteps)), entEntropy_randomUni_t_many[i], ls=:dash, label=L"uniform+unitary, \gamma=%$(GAMMAS[i])")
-end
-plot!(; xlabel=L"t", ylabel=L"S_{vN}", legend=:bottomright, legendfontsize=7,
-        title=L"(N, \chi, \, K) = (%$(N),%$(CHI), %$(KRAUSDIM))")
-savefig(aplot, OUTPUT_PATH * FILE * "_SvN_zusammen.pdf")
+# aplot = plot();
+# plot!(dt * (0:(nTimeSteps)), vNEntropy_t, label="no noise")
+# for i = 2:6
+#     plot!(dt * (0:(nTimeSteps)), vNEntropy_randomNoise_t_many[i], ls=:dashdot, label=L"uniform, \gamma=%$(GAMMAS[i])")
+#     plot!(dt * (0:(nTimeSteps)), vNEntropy_randomUni_t_many[i], ls=:dash, label=L"uniform+unitary, \gamma=%$(GAMMAS[i])")
+# end
+# plot!(; xlabel=L"t", ylabel=L"S_{vN}", legend=:bottomright, legendfontsize=7,
+#         title=L"(N, \chi, \, K) = (%$(N),%$(CHI), %$(KRAUSDIM))")
+# savefig(aplot, OUTPUT_PATH * FILE * "_SvN_zusammen.pdf")
